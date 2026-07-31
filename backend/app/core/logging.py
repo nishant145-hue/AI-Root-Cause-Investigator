@@ -6,8 +6,6 @@ from loguru import logger
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
-LOG_FILE = LOG_DIR / "app.log"
-
 # Remove default logger
 logger.remove()
 
@@ -15,22 +13,29 @@ logger.remove()
 logger.add(
     sink=lambda msg: print(msg, end=""),
     level="INFO",
-    colorize=True,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-        "<level>{level: <8}</level> | "
-        "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> | "
-        "<level>{message}</level>",
+           "<level>{level}</level> | "
+           "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
+           "{message}",
 )
 
 # File logging
 logger.add(
-    LOG_FILE,
+    LOG_DIR / "app.log",
     rotation="10 MB",
     retention="10 days",
     compression="zip",
     level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | "
-        "{level} | "
-        "{name}:{function}:{line} | "
-        "{message}",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
 )
+
+# Error log
+logger.add(
+    LOG_DIR / "error.log",
+    rotation="5 MB",
+    retention="30 days",
+    level="ERROR",
+    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+)
+
+__all__ = ["logger"]
