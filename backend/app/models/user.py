@@ -3,9 +3,10 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
-if TYPE_CHECKING:
-    from app.models.refresh_token import RefreshToken
 
+if TYPE_CHECKING:
+    from app.models.investigation import Investigation
+    from app.models.refresh_token import RefreshToken
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -29,4 +30,7 @@ class User(SQLModel, table=True):
 
     refresh_tokens: list["RefreshToken"] = Relationship(
         back_populates="user"
+    )
+    investigations: list["Investigation"] = Relationship(
+    back_populates="user"
     )
