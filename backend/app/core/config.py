@@ -38,6 +38,8 @@ class Settings(BaseSettings):
         case_sensitive=True,
         extra="ignore",
     )
+    
+    MAX_UPLOAD_SIZE: int = 50 * 1024 * 1024  # 50 MB
 
 
 settings = Settings()

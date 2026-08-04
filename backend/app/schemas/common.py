@@ -1,4 +1,4 @@
-class PaginatedResponse[T](GenericModel):
+class PaginatedResponse[T](GenericModel):  # noqa: F821
     items: list[T]
     total: int
     skip: int

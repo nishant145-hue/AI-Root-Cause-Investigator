@@ -3,10 +3,12 @@ from typing import TYPE_CHECKING, Optional
 
 from sqlmodel import Field, Relationship, SQLModel
 
+from app.models.log_file import LogFile
 
 if TYPE_CHECKING:
     from app.models.investigation import Investigation
     from app.models.refresh_token import RefreshToken
+    from app.models.log_file import LogFile
 
 class User(SQLModel, table=True):
     __tablename__ = "users"
@@ -32,5 +34,9 @@ class User(SQLModel, table=True):
         back_populates="user"
     )
     investigations: list["Investigation"] = Relationship(
+    back_populates="user"
+    )
+    
+    log_files: list["LogFile"] = Relationship(
     back_populates="user"
     )
