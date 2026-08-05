@@ -1,10 +1,9 @@
-from fastapi import APIRouter, Depends, File, UploadFile
-from sqlmodel import Session
-
 from app.auth.dependencies import get_current_user
 from app.database.session import get_session
 from app.schemas.upload_schema import UploadResponse
 from app.services.upload_service import process_upload
+from fastapi import APIRouter, Depends, File, UploadFile
+from sqlmodel import Session
 
 router = APIRouter(
     prefix="/uploads",
@@ -14,7 +13,7 @@ router = APIRouter(
 
 @router.post(
     "",
-    response_model=UploadResponse
+    response_model=UploadResponse  # noqa: F821
 )
 async def upload_log(
     file: UploadFile = File(...),

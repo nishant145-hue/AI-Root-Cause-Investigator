@@ -4,10 +4,12 @@ from app.core.config import settings
 from fastapi import HTTPException, status
 
 ALLOWED_EXTENSIONS = {
-    ".log",
     ".txt",
+    ".log",
     ".json",
     ".csv",
+    ".yaml",
+    ".yml",
 }
 
 
