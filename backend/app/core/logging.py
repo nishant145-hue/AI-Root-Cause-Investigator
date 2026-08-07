@@ -1,3 +1,5 @@
+import logging
+import sys
 from pathlib import Path
 
 from loguru import logger
@@ -39,3 +41,21 @@ logger.add(
 )
 
 __all__ = ["logger"]
+
+def setup_logging() -> None:
+    """
+    Configure application logging.
+    """
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format=(
+            "%(asctime)s | "
+            "%(levelname)s | "
+            "%(name)s | "
+            "%(message)s"
+        ),
+        handlers=[
+            logging.StreamHandler(sys.stdout),
+        ],
+    )

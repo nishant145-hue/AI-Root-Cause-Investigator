@@ -13,6 +13,7 @@ from app.schemas.investigation import (
     InvestigationList,
     InvestigationRead,
     InvestigationUpdate,
+    RunAIInvestigationRequest,
 )
 from app.schemas.investigation_history import (
     InvestigationHistoryList,
@@ -43,8 +44,9 @@ def get_service(
     )
 
     return InvestigationService(
-        investigation_repository,
-        history_service,
+        repository=investigation_repository,
+        history_service=history_service,
+        db=session,
     )
     
 def get_history_service(
@@ -160,4 +162,48 @@ def delete_investigation(
     return service.delete(
         investigation_id,
         current_user.id,
+    )
+    
+@router.post(
+    "/{investigation_id}/run",
+    response_model=InvestigationRead,
+    status_code=status.HTTP_200_OK,
+    summary="Run AI Investigation",
+    description=(
+        "Runs the AI Root Cause Investigation engine "
+        "on a parsed log file and stores the results."
+    ),
+    responses={
+        200: {
+            "description": "AI investigation completed successfully."
+        },
+        400: {
+            "description": "Invalid request."
+        },
+        401: {
+            "description": "Authentication required."
+        },
+        404: {
+            "description": "Investigation or parsed logs not found."
+        },
+        502: {
+            "description": "AI provider unavailable."
+        },
+    },
+)
+
+def run_ai_investigation(
+    investigation_id: int,
+    request: RunAIInvestigationRequest,
+    current_user: User = Depends(get_current_user),
+    service: InvestigationService = Depends(get_service),
+):
+    """
+    Run AI investigation for an uploaded log file.
+    """
+
+    return service.run_ai_investigation(
+        investigation_id=investigation_id,
+        log_file_id=request.log_file_id,
+        user_id=current_user.id,
     )

@@ -1,0 +1,8 @@
+{
+    "summary": "Database connection pool exhaustion caused failures.",
+    "root_cause": "Connection pool exhausted due to blocked writes.",
+    "failed_component": "Database",
+    "severity": "Critical",
+    "confidence": 0.95,
+    "additional_notes": "Increase pool size and review migrations."
+}

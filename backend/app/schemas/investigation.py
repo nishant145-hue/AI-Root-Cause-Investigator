@@ -72,6 +72,12 @@ class InvestigationRead(SQLModel):
     user_id: int
     created_at: datetime
     updated_at: datetime
+    summary: str | None = None
+    root_cause: str | None = None
+    failed_component: str | None = None
+    severity: str | None = None    
+    confidence: float | None = None
+    additional_notes: str | None = None
     
 class InvestigationList(SQLModel):
     items: list[InvestigationRead]
@@ -83,3 +89,8 @@ class InvestigationList(SQLModel):
     limit: int
 
     has_next: bool
+    
+class RunAIInvestigationRequest(SQLModel):
+    log_file_id: int
+    
+    

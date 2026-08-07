@@ -1,8 +1,9 @@
 import pytest
-
 from app.exceptions.parser_exceptions import ParserError
-from app.services.log_processing_service import LogProcessingService
 from app.schemas.parsed_log import ParsedLog
+from app.services.log_processing_service import LogProcessingService
+from app.services.parsed_log_service import ParsedLogService
+
 
 def test_process_valid_json(sample_logs_dir):
     """
@@ -91,3 +92,15 @@ def test_duplicate_removal(tmp_path):
     logs = LogProcessingService.process(file)
 
     assert len(logs) == 1
+    
+def test_get_by_log_file_id(db_session):
+    logs = ParsedLogService.get_by_log_file_id(
+        session=db_session,
+        log_file_id=1,
+    )
+
+    assert logs is not None
+    assert isinstance(logs, list)
+
+    if logs:
+        assert logs[0].log_file_id == 1

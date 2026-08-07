@@ -1,5 +1,7 @@
 import json
 
+from pydantic import ValidationError
+
 from app.exceptions.parser_exceptions import ParserError
 from app.parsers.base_parser import BaseParser
 from app.preprocessing.cleaner import MessageCleaner
@@ -35,19 +37,24 @@ class JSONParser(BaseParser):
         logs = []
 
         for item in data:
-
-            logs.append(
-                ParsedLog(
-                    timestamp=item.get("timestamp"),
-                    severity=SeverityNormalizer.normalize(
-                        item.get("level")
-                    ),
-                    message=MessageCleaner.clean(
-                        item.get("message")
-                    ),
-                    raw_line=json.dumps(item),
-                    metadata=item,
+            try:
+                logs.append(
+                    ParsedLog(
+                        timestamp=item.get("timestamp"),
+                        severity=SeverityNormalizer.normalize(
+                            item.get("level")
+                        ),
+                        message=MessageCleaner.clean(
+                            item.get("message")
+                        ),
+                        raw_line=json.dumps(item),
+                        metadata=item,
+                    )
                 )
-            )
+
+            except ValidationError as e:
+                raise ParserError(
+                    f"Invalid log entry: {e}"
+                ) from e
 
         return logs

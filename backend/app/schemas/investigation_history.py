@@ -1,43 +1,40 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import ConfigDict
 from sqlmodel import SQLModel
 
-from app.models.investigation_history import (
-    InvestigationAction,
-)
+from app.models.investigation_history import InvestigationAction
 
 
-class InvestigationHistoryCreate(SQLModel):
+class InvestigationHistoryBase(SQLModel):
+    """Base schema for investigation history."""
+
+    action: InvestigationAction
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+
+
+class InvestigationHistoryCreate(InvestigationHistoryBase):
+    """Schema used when creating a history record."""
+
     investigation_id: int
     user_id: int
 
-    action: InvestigationAction
 
-    old_value: str | None = None
-    new_value: str | None = None
+class InvestigationHistoryRead(InvestigationHistoryBase):
+    """Schema returned in API responses."""
 
-
-class InvestigationHistoryRead(SQLModel):
-    model_config = ConfigDict(
-        from_attributes=True,
-    )
+    model_config = ConfigDict(from_attributes=True)
 
     id: int
-
     investigation_id: int
-
     user_id: int
-
-    action: InvestigationAction
-
-    old_value: str | None = None
-    new_value: str | None = None
-
     created_at: datetime
 
 
 class InvestigationHistoryList(SQLModel):
-    items: list[InvestigationHistoryRead]
+    """Schema for returning a list of history records."""
 
+    items: list[InvestigationHistoryRead]
     total: int

@@ -10,8 +10,10 @@ class InvestigationAction(str, Enum):
     UPDATED = "UPDATED"
     STATUS_CHANGED = "STATUS_CHANGED"
     DELETED = "DELETED"
-
-
+    
+    AI_INVESTIGATION_STARTED = "AI Investigation Started"
+    AI_INVESTIGATION_COMPLETED = "AI Investigation Completed"
+    AI_INVESTIGATION_FAILED = "AI Investigation Failed"
 class InvestigationHistory(SQLModel, table=True):
     __tablename__ = "investigation_history"
 

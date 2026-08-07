@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 
 client = TestClient(app)
 
+
 def test_upload_valid_json(auth_headers):
 
     payload = f"""
@@ -33,17 +34,12 @@ def test_upload_valid_json(auth_headers):
     data = response.json()
 
     assert data["filename"] == "test.json"
-
     assert data["parsed_logs"] == 1
-    
+
+
 def test_upload_invalid_json(auth_headers):
 
-    payload = f"""
-    {{
-        "timestamp":
-        "{uuid.uuid4()}"
-    }}
-    """.encode()
+    payload = f'{{"timestamp":"{uuid.uuid4()}",'.encode()
 
     response = client.post(
         "/api/v1/uploads",
@@ -58,8 +54,9 @@ def test_upload_invalid_json(auth_headers):
     )
 
     assert response.status_code == 400
-    assert "timestamp" in response.json()["detail"]
-    
+    assert "Invalid JSON" in response.json()["detail"]
+
+
 def test_upload_unsupported_file(auth_headers):
 
     response = client.post(
@@ -75,7 +72,8 @@ def test_upload_unsupported_file(auth_headers):
     )
 
     assert response.status_code == 415
-    
+
+
 def test_duplicate_upload(auth_headers):
 
     payload = f"""
@@ -113,7 +111,9 @@ def test_duplicate_upload(auth_headers):
     )
 
     assert response2.status_code == 409
-    
+    assert response2.json()["detail"] == "This file has already been uploaded."
+
+
 def test_upload_response_structure(auth_headers):
 
     payload = f"""
@@ -136,6 +136,8 @@ def test_upload_response_structure(auth_headers):
         },
     )
 
+    assert response.status_code == 200
+
     data = response.json()
 
     expected = {
@@ -149,4 +151,3 @@ def test_upload_response_structure(auth_headers):
     }
 
     assert expected.issubset(data.keys())
-    

@@ -18,7 +18,8 @@ class Settings(BaseSettings):
     # Groq
     GROQ_API_KEY: str
     GROQ_MODEL: str = "llama-3.3-70b-versatile"
-
+    GROQ_MAX_RETRIES: int = 3
+    GROQ_RETRY_DELAY: int = 2
     # Upload
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE: int = 10 * 1024 * 1024

@@ -35,3 +35,33 @@ class Investigation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     user: "User" = Relationship(back_populates="investigations")
+    
+    summary: str | None = Field(
+        default=None,
+        nullable=True,
+    )
+
+    root_cause: str | None = Field(
+        default=None,
+        nullable=True,
+    )
+
+    failed_component: str | None = Field(
+        default=None,
+        nullable=True,
+    )
+
+    severity: str | None = Field(
+        default=None,
+        nullable=True,
+    )
+
+    confidence: float | None = Field(
+        default=None,
+        nullable=True,
+    )      
+
+    additional_notes: str | None = Field(
+        default=None,
+        nullable=True,
+    )

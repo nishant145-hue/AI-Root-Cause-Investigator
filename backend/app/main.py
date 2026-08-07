@@ -5,7 +5,9 @@ from typing_extensions import Final
 from app.api.v1.api import api_router
 from app.api.v1.investigation import router as investigation_router
 from app.core.config import settings
-from app.core.logging import logger
+from app.core.logging import logger, setup_logging
+
+setup_logging()
 
 app = FastAPI(
     title=settings.APP_NAME,

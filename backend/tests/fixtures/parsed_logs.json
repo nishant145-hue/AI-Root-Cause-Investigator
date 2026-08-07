@@ -1,0 +1,14 @@
+[
+    {
+        "timestamp": "2026-08-06T10:00:00",
+        "level": "ERROR",
+        "component": "Database",
+        "message": "Connection pool exhausted."
+    },
+    {
+        "timestamp": "2026-08-06T10:01:00",
+        "level": "ERROR",
+        "component": "Replication",
+        "message": "Replication lag detected."
+    }
+]
