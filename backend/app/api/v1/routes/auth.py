@@ -1,5 +1,6 @@
 from app.auth.dependencies import get_current_user
 from app.auth.security import require_admin, require_user
+from app.core.rate_limit import limiter
 from app.database.session import get_session
 from app.models.user import User
 from app.schemas.token import (
@@ -9,7 +10,7 @@ from app.schemas.token import (
 )
 from app.schemas.user import UserCreate, UserRead
 from app.services.auth_service import AuthService
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlmodel import Session
 
@@ -25,6 +26,7 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 def register(
+
     user_data: UserCreate,
     session: Session = Depends(get_session),
 ):
@@ -41,7 +43,9 @@ def register(
     "/login",
     response_model=Token,
 )
+@limiter.limit("5/minute")
 def login(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     session: Session = Depends(get_session),
 ):
@@ -100,6 +104,7 @@ def profile(
     response_model=Token,
 )
 def refresh_token(
+
     request: RefreshTokenRequest,
     session: Session = Depends(get_session),
 ):

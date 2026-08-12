@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Report Ready</title>
+</head>
+
+<body>
+    <div>
+        <h1>📄 Investigation Report Ready</h1>
+
+        <h2>{{ subject }}</h2>
+
+        <p>
+            Your investigation report has been generated
+            successfully.
+        </p>
+
+        {% if investigation_id %}
+        <p>
+            <strong>Investigation ID:</strong>
+            {{ investigation_id }}
+        </p>
+        {% endif %}
+
+        {% if dashboard_url %}
+        <p>
+            <a href="{{ dashboard_url }}">
+                View Investigation
+            </a>
+        </p>
+        {% endif %}
+    </div>
+</body>
+</html>

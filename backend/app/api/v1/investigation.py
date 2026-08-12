@@ -2,6 +2,13 @@ from app.auth.dependencies import get_current_user
 from app.database.session import get_session
 from app.models.investigation import InvestigationStatus
 from app.models.user import User
+from app.notifications.enums import (
+    NotificationProvider,
+    NotificationSeverity,
+)
+from app.notifications.registry import create_notification_manager
+from app.notifications.service import NotificationService
+from app.notifications.tasks import enqueue_notification_delivery
 from app.repositories.investigation_history_repository import (
     InvestigationHistoryRepository,
 )
@@ -24,13 +31,36 @@ from app.services.investigation_history_service import (
 from app.services.investigation_service import (
     InvestigationService,
 )
-from fastapi import APIRouter, Depends, Query, status
-from sqlmodel import Session
+from typing import Annotated
 
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Path,
+    Query,
+    status,
+)
+from sqlmodel import Session
+from typing import Annotated
+
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Path,
+    Query,
+    status,
+)
 router = APIRouter(
     prefix="/investigations",
     tags=["Investigations"],
 )
+import logging
+
+logger = logging.getLogger(__name__)
 
 def get_service(
     session: Session = Depends(get_session),
@@ -104,7 +134,7 @@ def get_all_investigations(
     response_model=InvestigationRead,
 )
 def get_investigation(
-    investigation_id: int,
+    investigation_id: Annotated[int, Path(ge=1)],
     current_user: User = Depends(get_current_user),
     service: InvestigationService = Depends(get_service),
 ):
@@ -117,7 +147,7 @@ def get_investigation(
     response_model=InvestigationHistoryList,
 )
 def get_investigation_history(
-    investigation_id: int,
+    investigation_id: Annotated[int, Path(ge=1)],
     current_user: User = Depends(get_current_user),
     investigation_service: InvestigationService = Depends(get_service),
     history_service: InvestigationHistoryService = Depends(
@@ -139,7 +169,7 @@ def get_investigation_history(
     response_model=InvestigationRead,
 )
 def update_investigation(
-    investigation_id: int,
+    investigation_id: Annotated[int, Path(ge=1)],
     investigation_data: InvestigationUpdate,
     current_user: User = Depends(get_current_user),
     service: InvestigationService = Depends(get_service),
@@ -155,7 +185,7 @@ def update_investigation(
     "/{investigation_id}",
 )
 def delete_investigation(
-    investigation_id: int,
+    investigation_id: Annotated[int, Path(ge=1)],
     current_user: User = Depends(get_current_user),
     service: InvestigationService = Depends(get_service),
 ):
@@ -191,19 +221,141 @@ def delete_investigation(
         },
     },
 )
-
 def run_ai_investigation(
-    investigation_id: int,
+    investigation_id: Annotated[int, Path(ge=1)],
     request: RunAIInvestigationRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     service: InvestigationService = Depends(get_service),
 ):
     """
-    Run AI investigation for an uploaded log file.
+    Run AI investigation and schedule notification delivery.
+
+    Notification failures must never change the investigation result.
     """
 
-    return service.run_ai_investigation(
-        investigation_id=investigation_id,
-        log_file_id=request.log_file_id,
-        user_id=current_user.id,
+    try:
+        investigation = service.run_ai_investigation(
+            investigation_id=investigation_id,
+            log_file_id=request.log_file_id,
+            user_id=current_user.id,
+        )
+
+    except HTTPException as exc:
+        # The investigation service has already handled the
+        # investigation failure and persisted FAILED status.
+        if exc.status_code in (
+            status.HTTP_502_BAD_GATEWAY,
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+        ):
+            investigation = service.repository.get_by_id(
+                investigation_id
+            )
+
+            if investigation is not None:
+                _schedule_investigation_notification(
+                    service=service,
+                    background_tasks=background_tasks,
+                    user=current_user,
+                    investigation=investigation,
+                    severity=NotificationSeverity.ERROR,
+                    subject=(
+                        f"Investigation Failed: "
+                        f"{investigation.title}"
+                    ),
+                    message=(
+                        f"Investigation '{investigation.title}' "
+                        "failed.\n\n"
+                        f"Reason: {exc.detail}"
+                    ),
+                    metadata={
+                        "investigation_id": investigation.id,
+                        "status": "FAILED",
+                        "error": str(exc.detail),
+                    },
+                )
+
+        raise
+
+    # Investigation completed successfully.
+    _schedule_investigation_notification(
+        service=service,
+        background_tasks=background_tasks,
+        user=current_user,
+        investigation=investigation,
+        severity=NotificationSeverity.INFO,
+        subject=(
+            f"Investigation Completed: "
+            f"{investigation.title}"
+        ),
+        message=(
+            f"Your investigation '{investigation.title}' "
+            "has completed successfully.\n\n"
+            f"Root Cause: "
+            f"{investigation.root_cause or 'Not identified'}\n"
+            f"Failed Component: "
+            f"{investigation.failed_component or 'Not identified'}\n"
+            f"Severity: "
+            f"{investigation.severity or 'Not specified'}\n"
+            f"Confidence: "
+            f"Confidence: "
+            f"{investigation.confidence if investigation.confidence is not None else 'Not specified'}"
+        ),
+        metadata={
+            "investigation_id": investigation.id,
+            "status": investigation.status.value,
+            "root_cause": investigation.root_cause,
+            "failed_component": investigation.failed_component,
+            "severity": investigation.severity,
+            "confidence": investigation.confidence,
+        },
     )
+
+    return investigation
+
+def _schedule_investigation_notification(
+    *,
+    service: InvestigationService,
+    background_tasks: BackgroundTasks,
+    user: User,
+    investigation,
+    severity: NotificationSeverity,
+    subject: str,
+    message: str,
+    metadata: dict,
+) -> None:
+    """
+    Persist an investigation notification and schedule delivery.
+
+    Notification failures must never change the investigation result.
+    """
+
+    try:
+        notification_service = NotificationService(
+            session=service.db,
+            manager=create_notification_manager(),
+        )
+
+        notification = notification_service.create_notification(
+            user_id=user.id,
+            provider=NotificationProvider.EMAIL,
+            severity=severity,
+            subject=subject,
+            message=message,
+            metadata=metadata,
+        )
+
+        enqueue_notification_delivery(
+            background_tasks,
+            notification.id,
+            user.email,
+        )
+
+    except Exception:
+        # Notification infrastructure must not break the
+        # investigation lifecycle.
+        logger.exception(
+            "Failed to schedule investigation notification. "
+            "Investigation ID=%s",
+            investigation.id,
+        )

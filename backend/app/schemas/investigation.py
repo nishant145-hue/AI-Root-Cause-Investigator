@@ -91,6 +91,17 @@ class InvestigationList(SQLModel):
     has_next: bool
     
 class RunAIInvestigationRequest(SQLModel):
-    log_file_id: int
+    """
+    Request body for running an AI investigation.
+
+    Security:
+    - log_file_id must be a positive database identifier.
+    - Ownership/existence is still checked by the service layer.
+    """
+
+    log_file_id: int = Field(
+        gt=0,
+        description="ID of the uploaded log file to investigate.",
+    )
     
     

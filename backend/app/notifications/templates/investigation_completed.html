@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Investigation Completed</title>
+</head>
+
+<body>
+    <div>
+        <h1>✅ Investigation Completed</h1>
+
+        <h2>{{ subject }}</h2>
+
+        <p>
+            The AI Root Cause Investigator has completed
+            the investigation.
+        </p>
+
+        {% if root_cause %}
+        <p>
+            <strong>Root Cause:</strong>
+            {{ root_cause }}
+        </p>
+        {% endif %}
+
+        {% if confidence is not none %}
+        <p>
+            <strong>AI Confidence:</strong>
+            {{ confidence }}%
+        </p>
+        {% endif %}
+
+        {% if recommendation %}
+        <h3>Recommended Action</h3>
+
+        <p>
+            {{ recommendation }}
+        </p>
+        {% endif %}
+
+        {% if dashboard_url %}
+        <p>
+            <a href="{{ dashboard_url }}">
+                Open Investigation Dashboard
+            </a>
+        </p>
+        {% endif %}
+    </div>
+</body>
+</html>

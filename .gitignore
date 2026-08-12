@@ -11,6 +11,11 @@ venv/
 
 # Environment Variables
 .env
+.env.*
+!.env.example
+
+# Docker
+*.docker.env
 
 # Logs
 logs/
@@ -40,3 +45,9 @@ htmlcov/
 
 # Misc
 *.sqlite3
+
+# Runtime uploads
+backend/uploads/
+
+# Generated reports
+backend/reports/

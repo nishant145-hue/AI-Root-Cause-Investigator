@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Weekly Summary</title>
+</head>
+
+<body>
+    <div>
+        <h1>📈 Weekly Investigation Summary</h1>
+
+        <p>
+            Here's your weekly operational overview.
+        </p>
+
+        <ul>
+            <li>
+                <strong>Total Investigations:</strong>
+                {{ investigations_count }}
+            </li>
+
+            <li>
+                <strong>Critical Incidents:</strong>
+                {{ critical_alerts }}
+            </li>
+
+            <li>
+                <strong>Average AI Confidence:</strong>
+                {{ average_confidence }}%
+            </li>
+
+            <li>
+                <strong>Average Resolution Time:</strong>
+                {{ average_resolution_time }}
+            </li>
+        </ul>
+
+        {% if recurring_problems %}
+        <h3>Recurring Problems</h3>
+
+        <ul>
+            {% for problem in recurring_problems %}
+            <li>{{ problem }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</body>
+</html>

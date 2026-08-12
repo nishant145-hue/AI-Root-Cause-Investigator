@@ -9,6 +9,9 @@ from app.models.parsed_log import ParsedLog
 from app.repositories.investigation_repository import (
     InvestigationRepository,
 )
+from app.repositories.log_file_repository import (
+    LogFileRepository,
+)
 from app.schemas.investigation import (
     InvestigationCreate,
     InvestigationUpdate,
@@ -38,7 +41,7 @@ class InvestigationService:
         self.history_service = history_service
         self.db = db
         self.ai_service = AIService()
-        
+
     def create(
         self,
         investigation_data: InvestigationCreate,
@@ -75,7 +78,7 @@ class InvestigationService:
 
         return created
 
-        
+
 
     def get_by_id(
         self,
@@ -92,8 +95,8 @@ class InvestigationService:
 
         if investigation.user_id != user_id:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied",
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Investigation not found",
             )
 
         return investigation
@@ -184,12 +187,12 @@ class InvestigationService:
                     new_value=str(updated.status),
                 )
             )
-        
+
         logger.info(
             "AI investigation completed successfully. Investigation ID=%d",
             updated.id,
         )
-        
+
         return updated
 
     def delete(
@@ -202,7 +205,7 @@ class InvestigationService:
         user_id,
     )
         title = investigation.title
-        
+
         self.history_service.create(
             InvestigationHistoryCreate(
                 investigation_id=investigation.id,
@@ -212,11 +215,11 @@ class InvestigationService:
                 new_value=None,
             )
         )
-        
+
         self.repository.delete(investigation)
 
         return {"message": "Investigation deleted successfully"}
-    
+
     def _load_parsed_logs(
     self,
     log_file_id: int,
@@ -237,7 +240,31 @@ class InvestigationService:
             )
 
         return parsed_logs
-    
+
+    def _validate_log_file_ownership(
+        self,
+        log_file_id: int,
+        user_id: int,
+    ):
+        """
+        Verify that the requested log file belongs to the
+        authenticated user.
+        """
+
+        log_file = LogFileRepository.get_by_id_for_user(
+            session=self.db,
+            log_file_id=log_file_id,
+            user_id=user_id,
+        )
+
+        if log_file is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Log file not found",
+            )
+
+        return log_file
+
     def _run_ai_investigation(
         self,
         log_file_id: int,
@@ -259,7 +286,7 @@ class InvestigationService:
         )
 
         return ai_result
-    
+
     def _save_ai_results(
         self,
         investigation: Investigation,
@@ -309,6 +336,11 @@ class InvestigationService:
             investigation_id=investigation_id,
             user_id=user_id,
         )
+        # Step 2: Validate log-file ownership
+        self._validate_log_file_ownership(
+            log_file_id=log_file_id,
+            user_id=user_id,
+        )
         logger.info(
             "Starting AI investigation. Investigation ID=%d, Log File ID=%d",
             investigation_id,
@@ -351,15 +383,14 @@ class InvestigationService:
 
         except HTTPException:
             raise
-        
-        except HTTPException:
-            raise
 
         except AIError as exc:
 
-            logger.exception(
-                "AI investigation failed. Investigation ID=%d",
+            logger.error(
+                "AI investigation failed. "
+                "Investigation ID=%d. ErrorType=%s",
                 investigation_id,
+                type(exc).__name__,
             )
 
             self.history_service.create(
@@ -368,7 +399,7 @@ class InvestigationService:
                     user_id=user_id,
                     action=InvestigationAction.AI_INVESTIGATION_FAILED,
                     old_value=None,
-                    new_value=str(exc),
+                    new_value="AI investigation failed",
                 )
             )
 
@@ -378,33 +409,37 @@ class InvestigationService:
 
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=str(exc),
+                detail="AI investigation service failed.",
             ) from exc
 
         except Exception as exc:
-            
-            logger.exception(
-                "AI investigation failed. Investigation ID=%d",
+
+            logger.error(
+                "Unexpected AI investigation failure. "
+                "Investigation ID=%d. ErrorType=%s",
                 investigation_id,
+                type(exc).__name__,
             )
+
             self.history_service.create(
                 InvestigationHistoryCreate(
                     investigation_id=investigation.id,
                     user_id=user_id,
                     action=InvestigationAction.AI_INVESTIGATION_FAILED,
                     old_value=None,
-                    new_value=str(exc),
-                )      
+                    new_value="AI investigation failed",
+                )
             )
+
             self._mark_investigation_failed(
                 investigation,
             )
-            
+
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"AI investigation failed: {str(exc)}",
+                detail="AI investigation failed.",
             ) from exc
-            
+
     def _mark_investigation_failed(
         self,
         investigation: Investigation,

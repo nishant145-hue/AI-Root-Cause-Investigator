@@ -4,47 +4,118 @@ from pathlib import Path
 
 from loguru import logger
 
-# Create logs directory if it doesn't exist
+from app.core.log_sanitizer import sanitize_log_message
+
+
+# -------------------------------------------------------------------
+# Log directory
+# -------------------------------------------------------------------
+
 LOG_DIR = Path("logs")
 LOG_DIR.mkdir(exist_ok=True)
 
-# Remove default logger
+
+# -------------------------------------------------------------------
+# Remove Loguru's default handler
+# -------------------------------------------------------------------
+
 logger.remove()
 
-# Console logging
-logger.add(
-    sink=lambda msg: print(msg, end=""),
-    level="INFO",
-    format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
-            "<level>{level}</level> | "
-            "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - "
-            "{message}",
+logger.configure(
+    extra={"request_id": "-"},
 )
 
-# File logging
+# -------------------------------------------------------------------
+# Safe sink
+# -------------------------------------------------------------------
+
+def _safe_sink(message):
+    """
+    Sanitize the final log message before writing it anywhere.
+
+    This provides a final defense against accidental leakage of:
+    - passwords
+    - API keys
+    - secret keys
+    - database credentials
+    - bearer tokens
+    - JWTs
+    """
+
+    sanitized = sanitize_log_message(str(message))
+    print(sanitized, end="")
+
+
+# -------------------------------------------------------------------
+# Console logging
+# -------------------------------------------------------------------
+
+logger.add(
+    sink=_safe_sink,
+    level="INFO",
+    format=(
+        "{time:YYYY-MM-DD HH:mm:ss} | "
+        "{level} | "
+        "request_id={extra[request_id]} | "
+        "{name}:{function}:{line} - "
+        "{message}"
+    ),
+)
+
+
+# -------------------------------------------------------------------
+# Application log file
+# -------------------------------------------------------------------
+
 logger.add(
     LOG_DIR / "app.log",
     rotation="10 MB",
     retention="10 days",
     compression="zip",
     level="INFO",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+    format=(
+        "{time:YYYY-MM-DD HH:mm:ss} | "
+        "{level} | "
+        "request_id={extra[request_id]} | "
+        "{message}"
+    ),
+    filter=lambda record: True,
 )
 
-# Error log
+
+# -------------------------------------------------------------------
+# Error log file
+# -------------------------------------------------------------------
+
 logger.add(
     LOG_DIR / "error.log",
     rotation="5 MB",
     retention="30 days",
+    compression="zip",
     level="ERROR",
-    format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}",
+    format=(
+        "{time:YYYY-MM-DD HH:mm:ss} | "
+        "{level} | "
+        "request_id={extra[request_id]} | "
+        "{message}"
+    ),
 )
+
+
+# -------------------------------------------------------------------
+# Standard-library logging
+# -------------------------------------------------------------------
 
 __all__ = ["logger"]
 
+
 def setup_logging() -> None:
     """
-    Configure application logging.
+    Configure standard-library logging.
+
+    Loguru is used by the application for structured application
+    logging. Standard-library logging remains available for libraries
+    that use Python's logging module.
     """
 
     logging.basicConfig(

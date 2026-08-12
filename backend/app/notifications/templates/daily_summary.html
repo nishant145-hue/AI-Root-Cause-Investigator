@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Summary</title>
+</head>
+
+<body>
+    <div>
+        <h1>📊 Daily Investigation Summary</h1>
+
+        <p>
+            Here's today's operational summary.
+        </p>
+
+        <ul>
+            <li>
+                <strong>Investigations:</strong>
+                {{ investigations_count }}
+            </li>
+
+            <li>
+                <strong>Critical Alerts:</strong>
+                {{ critical_alerts }}
+            </li>
+
+            <li>
+                <strong>Average AI Confidence:</strong>
+                {{ average_confidence }}%
+            </li>
+
+            <li>
+                <strong>Average Resolution Time:</strong>
+                {{ average_resolution_time }}
+            </li>
+        </ul>
+
+        {% if top_root_causes %}
+        <h3>Top Root Causes</h3>
+
+        <ul>
+            {% for cause in top_root_causes %}
+            <li>{{ cause }}</li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</body>
+</html>

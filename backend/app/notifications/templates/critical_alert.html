@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Critical Incident</title>
+</head>
+
+<body>
+    <div>
+        <h1>🚨 Critical Incident Detected</h1>
+
+        <p>
+            A critical incident requires immediate attention.
+        </p>
+
+        <hr>
+
+        <h2>{{ subject }}</h2>
+
+        <p>
+            <strong>Severity:</strong>
+            {{ severity }}
+        </p>
+
+        {% if system_name %}
+        <p>
+            <strong>System:</strong>
+            {{ system_name }}
+        </p>
+        {% endif %}
+
+        {% if root_cause %}
+        <p>
+            <strong>Root Cause:</strong>
+            {{ root_cause }}
+        </p>
+        {% endif %}
+
+        {% if confidence is not none %}
+        <p>
+            <strong>AI Confidence:</strong>
+            {{ confidence }}%
+        </p>
+        {% endif %}
+
+        <h3>Message</h3>
+
+        <p>
+            {{ message }}
+        </p>
+
+        {% if recommendation %}
+        <h3>Recommended Action</h3>
+
+        <p>
+            {{ recommendation }}
+        </p>
+        {% endif %}
+    </div>
+</body>
+</html>

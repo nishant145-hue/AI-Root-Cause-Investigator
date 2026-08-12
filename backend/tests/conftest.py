@@ -1,24 +1,26 @@
+import os
+
+os.environ["TESTING"] = "true"
+
 import sys
 from pathlib import Path
 
 import pytest
 from app.database.session import engine
 from app.main import app as fastapi_app
+from app.models.user import User
 from app.parsers.json_parser import JSONParser
 from app.parsers.log_parser import LogParser
 from app.parsers.txt_parser import TXTParser
 from app.parsers.yaml_parser import YAMLParser
 from fastapi.testclient import TestClient
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
-
 
 # -------------------------------------------------------------------
 # FastAPI Fixtures
 # -------------------------------------------------------------------
-
-        
 
 @pytest.fixture(scope="session")
 def app():
@@ -99,6 +101,73 @@ def auth_headers(client):
         "/api/v1/auth/register",
         json=register_data,
     )
+
+    response = client.post(
+        "/api/v1/auth/login",
+        data={
+            "username": email,
+            "password": password,
+        },
+    )
+
+    assert response.status_code == 200
+
+    token = response.json()["access_token"]
+
+    return {
+        "Authorization": f"Bearer {token}"
+    }
+
+@pytest.fixture
+def test_user(db_session, auth_headers):
+    """
+    Return the authenticated pytest user used by dashboard tests.
+    """
+
+    user = db_session.exec(
+        select(User).where(
+            User.email == "pytest@example.com"
+        )
+    ).first()
+
+    assert user is not None
+
+    return user
+
+@pytest.fixture
+def admin_headers(client, db_session):
+    """
+    Register/login a dedicated admin test user.
+    """
+
+    email = "pytest-admin@example.com"
+    password = "Password123!"
+
+    register_data = {
+        "username": "pytestadmin",
+        "email": email,
+        "password": password,
+        "full_name": "Pytest Admin",
+    }
+
+    client.post(
+        "/api/v1/auth/register",
+        json=register_data,
+    )
+
+    user = db_session.exec(
+        select(User).where(
+            User.email == email
+        )
+    ).first()
+
+    assert user is not None
+
+    user.role = "admin"
+
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
 
     response = client.post(
         "/api/v1/auth/login",

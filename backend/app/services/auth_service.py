@@ -68,6 +68,7 @@ class AuthService:
         email: str,
         password: str,
     ) -> Token:
+        """Authenticate a user and return access/refresh tokens."""
 
         # Find user
         user = UserRepository.get_by_email(
@@ -81,15 +82,73 @@ class AuthService:
                 detail="Invalid email or password",
             )
 
-        # Verify password
-        if not verify_password(
-            password,
-            user.hashed_password,
+
+        now = datetime.utcnow()
+
+        # Check temporary account lock.
+        if (
+            user.locked_until is not None
+            and user.locked_until > now
         ):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid email or password",
             )
+
+        # Automatically clear an expired lock.
+        if (
+            user.locked_until is not None
+            and user.locked_until <= now
+        ):
+            user.locked_until = None
+            user.failed_login_attempts = 0
+
+        # Verify password
+        password_valid = verify_password(
+            password,
+            user.hashed_password,
+        )
+
+        # ---------------------------------------------------------
+        # FAILED LOGIN
+        # ---------------------------------------------------------
+        if not password_valid:
+            user.failed_login_attempts += 1
+
+            # Lock account after maximum failed attempts.
+            if (
+                user.failed_login_attempts
+                >= settings.MAX_FAILED_LOGIN_ATTEMPTS
+            ):
+                user.locked_until = (
+                    now
+                    + timedelta(
+                        minutes=settings.LOGIN_LOCKOUT_MINUTES
+                    )
+                )
+
+            session.add(user)
+            session.commit()
+            session.refresh(user)
+
+            # Never continue to token generation after
+            # an invalid password.
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid email or password",
+            )
+
+        # ---------------------------------------------------------
+        # SUCCESSFUL LOGIN
+        # ---------------------------------------------------------
+
+        # Clear previous failed attempts.
+        user.failed_login_attempts = 0
+        user.locked_until = None
+
+        session.add(user)
+        session.commit()
+        session.refresh(user)
 
         # Create Access Token
         access_token = create_access_token(
@@ -113,7 +172,7 @@ class AuthService:
             user_id=user.id,
             token_hash=token_hash,
             expires_at=datetime.utcnow()
-            + timedelta(
+                + timedelta(
                 days=settings.REFRESH_TOKEN_EXPIRE_DAYS
             ),
             revoked=False,
@@ -128,7 +187,6 @@ class AuthService:
         return Token(
             access_token=access_token,
             refresh_token=refresh_token,
-            token_type="bearer",
         )
         
     @staticmethod

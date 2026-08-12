@@ -1,6 +1,0 @@
-id,title,status,severity,confidence,root_cause,failed_component,created_at
-6,Dataset failure tset,COMPLETED,ERROR,0.7,"Unknown, potentially due to network or database issues",Unknown,2026-08-07 10:58:37.350934
-5,Database Failure Investigation,COMPLETED,INFO,0.8,Unknown,None,2026-08-06 13:23:24.906746
-4,Redis Timeout,OPEN,,,,,2026-08-01 10:32:34.371254
-3,API GATEWAY ERROR,COMPLETED,,,,,2026-08-01 10:08:34.323568
-2,Database Failure,OPEN,,,,,2026-07-31 14:00:31.055837
