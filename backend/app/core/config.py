@@ -100,8 +100,16 @@ class Settings(BaseSettings):
     # Vector Database
     # =========================================================
 
+    # =========================================================
+    # Vector Database
+    # =========================================================
+
     CHROMA_DB_PATH: str = "./chroma_db"
 
+    QDRANT_URL: str = "memory://"
+    QDRANT_COLLECTION: str = "investigation_memory"
+    QDRANT_API_KEY: str = ""
+    QDRANT_TIMEOUT: float = 10.0
     # =========================================================
     # Embeddings
     # =========================================================
@@ -109,8 +117,12 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
 
     # =========================================================
-    # Production security validation
+    # Agent Execution Timeout
     # =========================================================
+
+    AGENT_TIMEOUT_SECONDS: float = 60.0
+    INVESTIGATION_TIMEOUT_SECONDS: float = 300.0
+    RECOVERY_TIMEOUT_SECONDS: float = 30.0
 
     # =========================================================
 # Production security validation

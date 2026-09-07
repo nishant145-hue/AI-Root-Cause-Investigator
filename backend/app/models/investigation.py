@@ -2,6 +2,7 @@ from datetime import datetime
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
+from sqlalchemy import JSON, Column
 from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
@@ -35,7 +36,7 @@ class Investigation(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
     user: "User" = Relationship(back_populates="investigations")
-    
+
     summary: str | None = Field(
         default=None,
         nullable=True,
@@ -59,9 +60,14 @@ class Investigation(SQLModel, table=True):
     confidence: float | None = Field(
         default=None,
         nullable=True,
-    )      
+    )
 
     additional_notes: str | None = Field(
         default=None,
         nullable=True,
     )
+
+    execution_analytics: dict = Field(
+    default_factory=dict,
+    sa_column=Column(JSON, nullable=False),
+)

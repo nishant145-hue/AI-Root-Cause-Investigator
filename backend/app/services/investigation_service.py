@@ -1,5 +1,11 @@
 import logging
 
+from app.agent.execution_manager_provider import (
+    get_execution_manager,
+)
+from app.agent.langgraph_runtime import (
+    run_langgraph_investigation,
+)
 from app.exceptions.ai_exceptions import AIError
 from app.models.investigation import Investigation, InvestigationStatus
 from app.models.investigation_history import (
@@ -267,33 +273,54 @@ class InvestigationService:
 
     def _run_ai_investigation(
         self,
+        investigation: Investigation,
         log_file_id: int,
-    ):
+        user_id: int,
+    ) -> tuple[
+        AIInvestigationResponse,
+        dict,
+    ]:
         """
-        Execute an AI investigation for a parsed log file.
+        Execute the production LangGraph investigation through the
+        application-wide AgentExecutionManager.
         """
 
-        parsed_logs = self._load_parsed_logs(
-            log_file_id
+        incident_summary = (
+            investigation.description
+            or investigation.title
         )
 
-        formatted_logs = LogFormatter.format_logs(
-            parsed_logs
-        )
+        manager = get_execution_manager()
 
-        ai_result = self.ai_service.investigate(
-            formatted_logs
-        )
+        def execute_langgraph():
+            return run_langgraph_investigation(
+                investigation_id=investigation.id,
+                user_id=user_id,
+                log_file_id=log_file_id,
+                incident_summary=incident_summary,
+                existing_failed_component=(
+                    investigation.failed_component
+                ),
+                existing_severity=(
+                    investigation.severity
+                ),
+            )
 
-        return ai_result
+        return manager.run(
+            investigation_id=investigation.id,
+            agent_name="langgraph_investigation",
+            fn=execute_langgraph,
+        )
 
     def _save_ai_results(
         self,
         investigation: Investigation,
         ai_result: AIInvestigationResponse,
+        execution_analytics: dict | None = None,
     ) -> Investigation:
         """
-        Save AI investigation results into the investigation record.
+        Save AI investigation results and execution analytics
+        into the investigation record.
         """
 
         investigation.summary = ai_result.summary
@@ -301,16 +328,28 @@ class InvestigationService:
         investigation.failed_component = ai_result.failed_component
         investigation.severity = ai_result.severity
         investigation.confidence = ai_result.confidence
-        investigation.additional_notes = ai_result.additional_notes
+        investigation.additional_notes = (
+            ai_result.additional_notes
+        )
+
+        # Persist LangGraph execution analytics
+        if execution_analytics is not None:
+            investigation.execution_analytics = (
+                execution_analytics
+            )
 
         investigation.status = InvestigationStatus.COMPLETED
 
-        updated = self.repository.update(investigation)
+        updated = self.repository.update(
+            investigation
+        )
 
         logger.info(
-            "AI investigation completed successfully. Investigation ID=%d",
-        updated.id,
+            "AI investigation completed successfully. "
+            "Investigation ID=%d",
+            updated.id,
         )
+
         return updated
 
     def run_ai_investigation(
@@ -357,15 +396,29 @@ class InvestigationService:
         )
 
         try:
-            # Step 2: Run AI
-            ai_result = self._run_ai_investigation(
+            ai_execution_result = self._run_ai_investigation(
+                investigation=investigation,
                 log_file_id=log_file_id,
-            )
+                user_id=user_id,
+                )
 
-            # Step 3: Save AI results
+            if isinstance(
+                ai_execution_result,
+                tuple,
+            ):
+                ai_result, execution_analytics = (
+                    ai_execution_result
+                )
+            else:
+                # Backward compatibility with the legacy
+                # AIInvestigationResponse contract.
+                ai_result = ai_execution_result
+                execution_analytics = {}
+
             updated = self._save_ai_results(
                 investigation=investigation,
                 ai_result=ai_result,
+                execution_analytics=execution_analytics,
             )
 
             # Step 4: Save investigation history

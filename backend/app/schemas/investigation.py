@@ -75,10 +75,10 @@ class InvestigationRead(SQLModel):
     summary: str | None = None
     root_cause: str | None = None
     failed_component: str | None = None
-    severity: str | None = None    
+    severity: str | None = None
     confidence: float | None = None
     additional_notes: str | None = None
-    
+
 class InvestigationList(SQLModel):
     items: list[InvestigationRead]
 
@@ -89,7 +89,7 @@ class InvestigationList(SQLModel):
     limit: int
 
     has_next: bool
-    
+
 class RunAIInvestigationRequest(SQLModel):
     """
     Request body for running an AI investigation.
@@ -103,5 +103,7 @@ class RunAIInvestigationRequest(SQLModel):
         gt=0,
         description="ID of the uploaded log file to investigate.",
     )
-    
-    
+
+class InvestigationAnalyticsRead(SQLModel):
+    investigation_id: int
+    analytics: dict

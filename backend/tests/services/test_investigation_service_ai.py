@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
@@ -117,7 +117,10 @@ def test_ai_error_marks_failed(
     )
 
     service._run_ai_investigation = MagicMock(
-        side_effect=AIError("Groq unavailable")
+        return_value=(
+            ai_result,
+            {},
+        )
     )
 
     service._mark_investigation_failed = MagicMock()
@@ -200,3 +203,92 @@ def test_save_ai_results(
     assert result.status == InvestigationStatus.COMPLETED
 
     repository.update.assert_called_once()
+
+def test_run_ai_success_persists_execution_analytics(
+    service,
+    repository,
+    history_service,
+    investigation,
+    ai_result,
+):
+    service.get_by_id = MagicMock(
+        return_value=investigation
+    )
+
+    analytics = {
+        "total_agents": 5,
+        "successful_agents": 5,
+        "failed_agents": 0,
+    }
+
+    service._run_ai_investigation = MagicMock(
+        return_value=(
+            ai_result,
+            analytics,
+        )
+    )
+
+    repository.update.return_value = investigation
+
+    result = service.run_ai_investigation(
+        investigation_id=1,
+        log_file_id=10,
+        user_id=2,
+    )
+
+    assert result.status == (
+        InvestigationStatus.COMPLETED
+    )
+
+    assert result.execution_analytics == analytics
+
+def test_run_ai_uses_agent_execution_manager(
+    service,
+    repository,
+    history_service,
+    investigation,
+    ai_result,
+):
+    execution_analytics = {
+        "total_agents": 5,
+        "successful_agents": 5,
+        "failed_agents": 0,
+    }
+
+    manager = MagicMock()
+
+    manager.run.return_value = (
+        ai_result,
+        execution_analytics,
+    )
+
+    service.get_by_id = MagicMock(
+        return_value=investigation
+    )
+
+    repository.update.return_value = investigation
+
+    with patch(
+        "app.services.investigation_service.get_execution_manager",
+        return_value=manager,
+    ):
+        result = service.run_ai_investigation(
+            investigation_id=1,
+            log_file_id=10,
+            user_id=2,
+        )
+
+    manager.run.assert_called_once()
+
+    call_kwargs = manager.run.call_args.kwargs
+
+    assert call_kwargs["investigation_id"] == 1
+    assert call_kwargs["agent_name"] == (
+        "langgraph_investigation"
+    )
+
+    assert callable(call_kwargs["fn"])
+
+    assert result.execution_analytics == (
+        execution_analytics
+    )

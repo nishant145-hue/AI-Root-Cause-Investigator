@@ -79,11 +79,12 @@ def log_parser():
 # Authentication Fixture
 # -------------------------------------------------------------------
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def auth_headers(client):
     """
-    Registers a test user (if needed), logs in,
-    and returns Authorization headers.
+    Registers a test user if needed, logs in,
+    and returns fresh Authorization headers
+    for each test.
     """
 
     email = "pytest@example.com"
@@ -96,7 +97,6 @@ def auth_headers(client):
         "full_name": "Pytest User",
     }
 
-    # Ignore failure if user already exists
     client.post(
         "/api/v1/auth/register",
         json=register_data,
@@ -110,7 +110,7 @@ def auth_headers(client):
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
 
     token = response.json()["access_token"]
 

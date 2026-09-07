@@ -1,6 +1,20 @@
-from app.auth.dependencies import get_current_user
-from app.database.session import get_session
-from app.models.investigation import InvestigationStatus
+import time
+from typing import Annotated
+
+from app.agent.analytics_dashboard import (
+    build_analytics_dashboard,
+)
+from app.auth.dependencies import (
+    get_current_user,
+)
+from app.core.metrics import metrics
+from app.database.session import (
+    get_session,
+)
+from app.models.investigation import (
+    Investigation,
+    InvestigationStatus,
+)
 from app.models.user import User
 from app.notifications.enums import (
     NotificationProvider,
@@ -15,7 +29,11 @@ from app.repositories.investigation_history_repository import (
 from app.repositories.investigation_repository import (
     InvestigationRepository,
 )
+from app.schemas.analytics import (
+    InvestigationAnalyticsDashboardRead,
+)
 from app.schemas.investigation import (
+    InvestigationAnalyticsRead,
     InvestigationCreate,
     InvestigationList,
     InvestigationRead,
@@ -25,14 +43,18 @@ from app.schemas.investigation import (
 from app.schemas.investigation_history import (
     InvestigationHistoryList,
 )
+from app.services.analytics_report_service import (
+    AnalyticsReportService,
+)
+from app.services.analytics_validation_service import (
+    AnalyticsValidationService,
+)
 from app.services.investigation_history_service import (
     InvestigationHistoryService,
 )
 from app.services.investigation_service import (
     InvestigationService,
 )
-from typing import Annotated
-
 from fastapi import (
     APIRouter,
     BackgroundTasks,
@@ -42,18 +64,12 @@ from fastapi import (
     Query,
     status,
 )
-from sqlmodel import Session
-from typing import Annotated
-
-from fastapi import (
-    APIRouter,
-    BackgroundTasks,
-    Depends,
-    HTTPException,
-    Path,
-    Query,
-    status,
+from fastapi.responses import FileResponse
+from sqlmodel import (
+    Session,
+    select,
 )
+
 router = APIRouter(
     prefix="/investigations",
     tags=["Investigations"],
@@ -78,7 +94,7 @@ def get_service(
         history_service=history_service,
         db=session,
     )
-    
+
 def get_history_service(
     session: Session = Depends(get_session),
 ):
@@ -127,7 +143,7 @@ def get_all_investigations(
         search=search,
         status=status_filter,
     )
-    
+
 
 @router.get(
     "/{investigation_id}",
@@ -142,6 +158,7 @@ def get_investigation(
         investigation_id,
         current_user.id,
     )
+
 @router.get(
     "/{investigation_id}/history",
     response_model=InvestigationHistoryList,
@@ -149,12 +166,14 @@ def get_investigation(
 def get_investigation_history(
     investigation_id: Annotated[int, Path(ge=1)],
     current_user: User = Depends(get_current_user),
-    investigation_service: InvestigationService = Depends(get_service),
+    investigation_service: InvestigationService = Depends(
+        get_service
+    ),
     history_service: InvestigationHistoryService = Depends(
         get_history_service
     ),
 ):
-    # Verify the investigation exists and belongs to the user
+    # Verify ownership first
     investigation_service.get_by_id(
         investigation_id,
         current_user.id,
@@ -164,6 +183,156 @@ def get_investigation_history(
         investigation_id
     )
 
+
+@router.get(
+    "/{investigation_id}/analytics",
+    response_model=InvestigationAnalyticsRead,
+    summary="Get Investigation Execution Analytics",
+    description=(
+        "Returns execution analytics generated for "
+        "the investigation."
+    ),
+)
+def get_investigation_analytics(
+    investigation_id: Annotated[int, Path(ge=1)],
+    current_user: User = Depends(get_current_user),
+    service: InvestigationService = Depends(get_service),
+):
+    investigation = service.get_by_id(
+        investigation_id,
+        current_user.id,
+    )
+
+    return InvestigationAnalyticsRead(
+        investigation_id=investigation.id,
+        analytics=(
+            investigation.execution_analytics
+            or {}
+        ),
+    )
+
+@router.get(
+    "/{investigation_id}/analytics/dashboard",
+    response_model=InvestigationAnalyticsDashboardRead,
+    summary="Get Investigation Analytics Dashboard",
+    description=(
+        "Returns dashboard-ready execution analytics "
+        "for the investigation."
+    ),
+)
+
+def get_investigation_analytics_dashboard(
+    investigation_id: int,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
+    start_time = time.perf_counter()
+
+    try:
+        investigation = session.get(
+            Investigation,
+            investigation_id,
+        )
+
+        if investigation is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Investigation not found",
+            )
+
+        if investigation.user_id != current_user.id:
+            raise HTTPException(
+                status_code=404,
+                detail="Investigation not found",
+            )
+
+        analytics = (
+            investigation.execution_analytics
+            or {}
+        )
+
+        result = (
+            AnalyticsValidationService.build_dashboard(
+                investigation_id=investigation.id,
+                analytics=analytics,
+            )
+        )
+
+        duration_ms = (
+            time.perf_counter() - start_time
+        ) * 1000
+
+        metrics.record_analytics_dashboard_request(
+            success=True,
+            duration_ms=duration_ms,
+        )
+
+        return result
+
+    except Exception:
+        duration_ms = (
+            time.perf_counter() - start_time
+        ) * 1000
+
+        metrics.record_analytics_dashboard_request(
+            success=False,
+            duration_ms=duration_ms,
+        )
+
+        raise
+
+@router.get(
+    "/{investigation_id}/analytics/report",
+    response_model=InvestigationAnalyticsDashboardRead,
+    summary="Get Investigation Analytics Report",
+    description=(
+        "Returns a report-ready analytics summary "
+        "for the investigation."
+    ),
+)
+def get_investigation_analytics_report(
+    investigation_id: int = Path(
+        ...,
+        gt=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    session: Session = Depends(
+        get_session
+    ),
+):
+    investigation = session.exec(
+        select(Investigation).where(
+            Investigation.id == investigation_id,
+            Investigation.user_id == current_user.id,
+        )
+    ).first()
+
+    if investigation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found.",
+        )
+
+    analytics_data = (
+        getattr(
+            investigation,
+            "execution_analytics",
+            None,
+        )
+        or {}
+    )
+
+    timeline = analytics_data.get(
+        "timeline",
+        []
+    )
+
+    return build_analytics_dashboard(
+        investigation_id=investigation_id,
+        timeline=timeline,
+    )
 @router.put(
     "/{investigation_id}",
     response_model=InvestigationRead,
@@ -193,7 +362,7 @@ def delete_investigation(
         investigation_id,
         current_user.id,
     )
-    
+
 @router.post(
     "/{investigation_id}/run",
     response_model=InvestigationRead,
@@ -359,3 +528,220 @@ def _schedule_investigation_notification(
             "Investigation ID=%s",
             investigation.id,
         )
+
+@router.get(
+    "/{investigation_id}/analytics/export/json",
+)
+def export_analytics_json(
+    investigation_id: int = Path(
+        ...,
+        gt=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    session: Session = Depends(
+        get_session
+    ),
+):
+    investigation = session.exec(
+        select(Investigation).where(
+            Investigation.id == investigation_id,
+            Investigation.user_id == current_user.id,
+        )
+    ).first()
+
+    if investigation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found.",
+        )
+
+    analytics = (
+        getattr(
+            investigation,
+            "execution_analytics",
+            None,
+        )
+        or {}
+    )
+
+    report = {
+        "investigation_id": investigation_id,
+        **analytics,
+    }
+
+    return report
+
+@router.get(
+    "/{investigation_id}/analytics/export/csv",
+)
+def export_analytics_csv(
+    investigation_id: int = Path(
+        ...,
+        gt=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    session: Session = Depends(
+        get_session
+    ),
+):
+    investigation = session.exec(
+        select(Investigation).where(
+            Investigation.id == investigation_id,
+            Investigation.user_id == current_user.id,
+        )
+    ).first()
+
+    if investigation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found.",
+        )
+
+    analytics = (
+        getattr(
+            investigation,
+            "execution_analytics",
+            None,
+        )
+        or {}
+    )
+
+    report = {
+        "investigation_id": investigation_id,
+        **analytics,
+    }
+
+    service = AnalyticsReportService(
+        report
+    )
+
+    file_path = service.export_csv()
+
+    return FileResponse(
+        path=file_path,
+        media_type="text/csv",
+        filename=(
+            f"investigation_"
+            f"{investigation_id}_analytics.csv"
+        ),
+    )
+
+@router.get(
+    "/{investigation_id}/analytics/export/excel",
+)
+def export_analytics_excel(
+    investigation_id: int = Path(
+        ...,
+        gt=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    session: Session = Depends(
+        get_session
+    ),
+):
+    investigation = session.exec(
+        select(Investigation).where(
+            Investigation.id == investigation_id,
+            Investigation.user_id == current_user.id,
+        )
+    ).first()
+
+    if investigation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found.",
+        )
+
+    analytics = (
+        getattr(
+            investigation,
+            "execution_analytics",
+            None,
+        )
+        or {}
+    )
+
+    report = {
+        "investigation_id": investigation_id,
+        **analytics,
+    }
+
+    service = AnalyticsReportService(
+        report
+    )
+
+    file_path = service.export_excel()
+
+    return FileResponse(
+        path=file_path,
+        media_type=(
+            "application/vnd.openxmlformats-officedocument."
+            "spreadsheetml.sheet"
+        ),
+        filename=(
+            f"investigation_"
+            f"{investigation_id}_analytics.xlsx"
+        ),
+    )
+@router.get(
+    "/{investigation_id}/analytics/export/pdf",
+)
+def export_analytics_pdf(
+    investigation_id: int = Path(
+        ...,
+        gt=0,
+    ),
+    current_user: User = Depends(
+        get_current_user
+    ),
+    session: Session = Depends(
+        get_session
+    ),
+):
+    investigation = session.exec(
+        select(Investigation).where(
+            Investigation.id == investigation_id,
+            Investigation.user_id == current_user.id,
+        )
+    ).first()
+
+    if investigation is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Investigation not found.",
+        )
+
+    analytics = (
+        getattr(
+            investigation,
+            "execution_analytics",
+            None,
+        )
+        or {}
+    )
+
+    report = {
+        "investigation_id": investigation_id,
+        **analytics,
+    }
+
+    service = AnalyticsReportService(
+        report
+    )
+
+    file_path = service.export_pdf()
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/pdf",
+        filename=(
+            f"investigation_"
+            f"{investigation_id}_analytics.pdf"
+        ),
+    )

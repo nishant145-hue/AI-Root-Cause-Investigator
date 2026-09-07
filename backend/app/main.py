@@ -8,7 +8,6 @@ from sqlalchemy import text
 from typing_extensions import Final
 
 from app.api.v1.api import api_router
-from app.api.v1.investigation import router as investigation_router
 from app.auth.security import require_admin
 from app.core.config import settings
 from app.core.logging import logger, setup_logging
@@ -146,10 +145,7 @@ app.include_router(
     api_router,
     prefix="/api/v1",
 )
-app.include_router(
-    investigation_router,
-    prefix="/api/v1",
-)
+
 
 @app.get("/ready")
 async def readiness():
