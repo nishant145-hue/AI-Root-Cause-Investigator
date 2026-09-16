@@ -288,3 +288,61 @@ export const getInvestigationCriticalPath =
 
     return response.data;
   };
+
+export interface ObservabilityHealth {
+  [key: string]: unknown;
+}
+
+export interface ObservabilityRuntime {
+  [key: string]: unknown;
+}
+
+export interface ObservabilityFailures {
+  [key: string]: unknown;
+}
+
+export interface InvestigationObservabilitySummary {
+  [key: string]: unknown;
+}
+
+export const getObservabilityHealth =
+  async (): Promise<ObservabilityHealth> => {
+    const response =
+      await api.get<ObservabilityHealth>(
+        "/api/v1/observability/health",
+      );
+
+    return response.data;
+  };
+
+export const getObservabilityRuntime =
+  async (): Promise<ObservabilityRuntime> => {
+    const response =
+      await api.get<ObservabilityRuntime>(
+        "/api/v1/observability/runtime",
+      );
+
+    return response.data;
+  };
+
+export const getObservabilityFailures =
+  async (): Promise<ObservabilityFailures> => {
+    const response =
+      await api.get<ObservabilityFailures>(
+        "/api/v1/observability/failures",
+      );
+
+    return response.data;
+  };
+
+export const getInvestigationObservabilitySummary =
+  async (
+    investigationId: number,
+  ): Promise<InvestigationObservabilitySummary> => {
+    const response =
+      await api.get<InvestigationObservabilitySummary>(
+        `/api/v1/observability/investigations/${investigationId}/summary`,
+      );
+
+    return response.data;
+  };
