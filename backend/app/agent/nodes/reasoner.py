@@ -1,6 +1,7 @@
 from app.agent.reasoning import AgentReasoningService
 from app.agent.state import InvestigationState
 from app.agent.state_timeline import (
+    execute_timeline_operation,
     propagate_timeline,
 )
 
@@ -28,9 +29,19 @@ def reasoner_node(
     )
 
     if not evidence:
+        _, trace_entry = execute_timeline_operation(
+            state,
+            agent="reasoner",
+            action="generate_hypotheses",
+            metadata={
+                "business_status": "NO_EVIDENCE",
+                "hypothesis_count": 0,
+            },
+            operation=lambda: None,
+        )
+
         timeline_entry = {
-            "agent": "reasoner",
-            "action": "generate_hypotheses",
+            **trace_entry,
             "status": "NO_EVIDENCE",
             "hypothesis_count": 0,
         }
@@ -48,16 +59,28 @@ def reasoner_node(
             ),
             "execution_timeline": updated_timeline,
         }
-
     reasoning_service = AgentReasoningService()
 
-    response = reasoning_service.generate_hypotheses(
-        incident_summary=(
-            state["incident_summary"]
-        ),
-        evidence=evidence,
-        historical_incidents=(
-            historical_incidents
+    response, trace_entry = execute_timeline_operation(
+        state,
+        agent="reasoner",
+        action="generate_hypotheses",
+        metadata={
+            "evidence_count": len(evidence),
+            "historical_count": len(
+                historical_incidents
+            ),
+        },
+        operation=lambda: (
+            reasoning_service.generate_hypotheses(
+                incident_summary=(
+                    state["incident_summary"]
+                ),
+                evidence=evidence,
+                historical_incidents=(
+                    historical_incidents
+                ),
+            )
         ),
     )
 
@@ -87,8 +110,7 @@ def reasoner_node(
     )
 
     timeline_entry = {
-        "agent": "reasoner",
-        "action": "generate_hypotheses",
+        **trace_entry,
         "status": "COMPLETED",
         "hypothesis_count": len(hypotheses),
     }

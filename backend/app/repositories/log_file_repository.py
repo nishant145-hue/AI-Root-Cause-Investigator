@@ -75,3 +75,16 @@ class LogFileRepository:
         )
 
         return session.exec(statement).first()
+
+    @staticmethod
+    def get_all_for_user(
+        session: Session,
+        user_id: int,
+    ) -> list[LogFile]:
+        statement = (
+            select(LogFile)
+            .where(LogFile.user_id == user_id)
+            .order_by(LogFile.uploaded_at.desc())
+        )
+
+        return list(session.exec(statement).all())

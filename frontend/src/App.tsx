@@ -1,31 +1,72 @@
-import { useEffect, useState } from "react";
-import api from "./services/api";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+} from "react-router-dom";
+
+import AppLayout from "./components/layout/AppLayout";
+import Dashboard from "./pages/Dashboard";
+import Investigation from "./pages/Investigation";
+import Investigations from "./pages/Investigations";
+import Login from "./pages/Login";
+import Notifications from "./pages/Notifications";
+import NotFound from "./pages/NotFound";
+import Observability from "./pages/Observability";
+import Settings from "./pages/Settings";
+import Upload from "./pages/Upload";
+import ProtectedRoute from "./components/auth/ProtectedRoute";
+import CreateInvestigation from "./pages/CreateInvestigation";
 
 function App() {
-  const [message, setMessage] = useState("Loading...");
-
-  useEffect(() => {
-    api.get("/api/ping")
-      .then((response) => {
-        setMessage(response.data.message);
-      })
-      .catch(() => {
-        setMessage("Backend connection failed");
-      });
-  }, []);
-
   return (
-    <div
-      style={{
-        padding: "40px",
-        fontSize: "24px",
-        fontFamily: "Arial",
-      }}
-    >
-      <h1>AI Root Cause Investigator</h1>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
 
-      <p>{message}</p>
-    </div>
+        <Route element={<ProtectedRoute />}>
+          <Route element={<AppLayout />}>
+            <Route
+              path="/"
+              element={<Navigate to="/dashboard" replace />}
+            />
+
+            <Route path="/dashboard" element={<Dashboard />} />
+
+            <Route
+              path="/investigations"
+              element={<Investigations />}
+            />
+
+            <Route
+              path="/investigations/new"
+              element={<CreateInvestigation />}
+            />
+
+            <Route
+              path="/investigations/:investigationId"
+              element={<Investigation />}
+            />
+
+            <Route
+              path="/observability"
+              element={<Observability />}
+            />
+
+            <Route path="/uploads" element={<Upload />} />
+
+            <Route
+              path="/notifications"
+              element={<Notifications />}
+            />
+
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Route>
+
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

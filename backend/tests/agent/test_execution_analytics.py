@@ -163,6 +163,160 @@ def test_slowest_agent():
         == 750.0
     )
 
+def test_duration_analytics_uses_real_timeline_durations():
+
+    timeline = [
+        {
+            "agent": "memory",
+            "status": "COMPLETED",
+            "duration_ms": 13710.0,
+            "attempt": 1,
+        },
+        {
+            "agent": "orchestrator",
+            "status": "COMPLETED",
+            "duration_ms": 0.02,
+            "attempt": 1,
+        },
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "duration_ms": 8.6,
+            "attempt": 1,
+        },
+        {
+            "agent": "reasoner",
+            "status": "NO_EVIDENCE",
+            "duration_ms": 0.01,
+            "attempt": 1,
+        },
+        {
+            "agent": "validator",
+            "status": "REJECTED",
+            "duration_ms": 0.02,
+            "attempt": 1,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    expected_total = (
+        13710.0
+        + 0.02
+        + 8.6
+        + 0.01
+        + 0.02
+    )
+
+    assert (
+        analytics.total_duration_ms()
+        == round(expected_total, 2)
+    )
+
+    assert (
+        analytics.slowest_agent()
+        == "memory"
+    )
+
+    assert (
+        analytics.slowest_agent_duration_ms()
+        == 13710.0
+    )
+
+    performance = analytics.agent_performance()
+
+    assert (
+        performance["memory"]["total_duration_ms"]
+        == 13710.0
+    )
+
+    assert (
+        performance["investigator"]["average_duration_ms"]
+        == 8.6
+    )
+
+def test_agent_performance_aggregates_real_timeline_data():
+
+    timeline = [
+        {
+            "agent": "investigator",
+            "action": "search_logs",
+            "status": "COMPLETED",
+            "duration_ms": 8.6,
+            "attempt": 1,
+        },
+        {
+            "agent": "investigator",
+            "action": "search_logs",
+            "status": "COMPLETED",
+            "duration_ms": 3.8,
+            "attempt": 2,
+        },
+        {
+            "agent": "reasoner",
+            "action": "generate_hypotheses",
+            "status": "NO_EVIDENCE",
+            "duration_ms": 0.03,
+            "attempt": 1,
+        },
+        {
+            "agent": "validator",
+            "action": "validate_root_cause",
+            "status": "REJECTED",
+            "duration_ms": 0.02,
+            "attempt": 1,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    performance = analytics.agent_performance()
+
+    investigator = performance["investigator"]
+
+    assert investigator["execution_count"] == 2
+
+    assert (
+        investigator["total_duration_ms"]
+        == 12.4
+    )
+
+    assert (
+        investigator["average_duration_ms"]
+        == 6.2
+    )
+
+    assert (
+        investigator["success_count"]
+        == 2
+    )
+
+    assert (
+        investigator["failure_count"]
+        == 0
+    )
+
+    reasoner = performance["reasoner"]
+
+    assert reasoner["execution_count"] == 1
+
+    assert (
+        reasoner["failure_count"]
+        == 0
+    )
+
+    validator = performance["validator"]
+
+    assert validator["execution_count"] == 1
+
+    assert (
+        validator["failure_count"]
+        == 0
+    )
 
 def test_empty_timeline():
 
@@ -328,6 +482,101 @@ def test_failure_retry_metrics_empty():
         "failures_by_agent": {},
         "retries_by_agent": {},
     }
+
+def test_retry_count_counts_retry_attempts_only():
+
+    timeline = [
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "duration_ms": 100.0,
+            "attempt": 1,
+        },
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "duration_ms": 200.0,
+            "attempt": 2,
+        },
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "duration_ms": 300.0,
+            "attempt": 3,
+        },
+    ]
+
+    analytics = (
+        InvestigationExecutionAnalytics(
+            timeline
+        )
+    )
+
+    assert analytics.retry_count() == 2
+
+    assert (
+        analytics.failure_retry_metrics()[
+            "total_retries"
+        ]
+        == 2
+    )
+
+def test_non_failure_business_statuses_are_not_agent_failures():
+
+    timeline = [
+        {
+            "agent": "reasoner",
+            "status": "NO_EVIDENCE",
+            "duration_ms": 10.0,
+        },
+        {
+            "agent": "validator",
+            "status": "REJECTED",
+            "duration_ms": 5.0,
+        },
+    ]
+
+    analytics = (
+        InvestigationExecutionAnalytics(
+            timeline
+        )
+    )
+
+    assert (
+        analytics.successful_executions()
+        == 0
+    )
+
+    assert (
+        analytics.failed_executions()
+        == 0
+    )
+
+    performance = (
+        analytics.agent_performance()
+    )
+
+    assert (
+        performance["reasoner"][
+            "failure_count"
+        ]
+        == 0
+    )
+
+    assert (
+        performance["validator"][
+            "failure_count"
+        ]
+        == 0
+    )
+
+    metrics = (
+        analytics.failure_retry_metrics()
+    )
+
+    assert metrics[
+        "total_failures"
+    ] == 0
 
 def test_bottleneck_detection():
 
@@ -652,3 +901,225 @@ def test_unified_analytics_summary_empty():
     assert summary[
         "efficiency"
     ]["rating"] == "NO_DATA"
+
+def test_slowest_agent_uses_real_duration():
+
+    timeline = [
+        {
+            "agent": "memory",
+            "status": "COMPLETED",
+            "duration_ms": 13710.0,
+        },
+        {
+            "agent": "orchestrator",
+            "status": "COMPLETED",
+            "duration_ms": 0.02,
+        },
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "duration_ms": 8.6,
+        },
+        {
+            "agent": "reasoner",
+            "status": "NO_EVIDENCE",
+            "duration_ms": 0.04,
+        },
+        {
+            "agent": "validator",
+            "status": "REJECTED",
+            "duration_ms": 0.02,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    assert analytics.slowest_agent() == "memory"
+
+    assert (
+        analytics.slowest_agent_duration_ms()
+        == 13710.0
+    )
+
+def test_bottleneck_agents_uses_agent_average_duration():
+
+    timeline = [
+        {
+            "agent": "memory",
+            "status": "COMPLETED",
+            "duration_ms": 13710.0,
+        },
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "duration_ms": 8.6,
+        },
+        {
+            "agent": "reasoner",
+            "status": "NO_EVIDENCE",
+            "duration_ms": 0.04,
+        },
+        {
+            "agent": "validator",
+            "status": "REJECTED",
+            "duration_ms": 0.02,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    bottlenecks = analytics.bottleneck_agents()
+
+    assert len(bottlenecks) == 1
+
+    bottleneck = bottlenecks[0]
+
+    assert bottleneck["agent"] == "memory"
+
+    assert (
+        bottleneck["average_duration_ms"]
+        == 13710.0
+    )
+
+    assert (
+        bottleneck["slowdown_ratio"]
+        > 1.5
+    )
+
+    assert (
+        bottleneck["overall_average_duration_ms"]
+        > 0
+    )
+
+def test_bottleneck_agents_respects_threshold_multiplier():
+
+    timeline = [
+        {
+            "agent": "fast",
+            "status": "COMPLETED",
+            "duration_ms": 10.0,
+        },
+        {
+            "agent": "slow",
+            "status": "COMPLETED",
+            "duration_ms": 40.0,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    bottlenecks = analytics.bottleneck_agents(
+        threshold_multiplier=1.5
+    )
+
+    assert len(bottlenecks) == 1
+
+    assert (
+        bottlenecks[0]["agent"]
+        == "slow"
+    )
+
+    assert (
+        bottlenecks[0]["slowdown_ratio"]
+        == round(40.0 / 25.0, 2)
+    )
+
+def test_failure_retry_metrics_correlates_failures_and_retries():
+
+    timeline = [
+        {
+            "agent": "investigator",
+            "status": "FAILED",
+            "attempt": 1,
+        },
+        {
+            "agent": "investigator",
+            "status": "FAILED",
+            "attempt": 2,
+        },
+        {
+            "agent": "investigator",
+            "status": "COMPLETED",
+            "attempt": 3,
+        },
+        {
+            "agent": "reasoner",
+            "status": "NO_EVIDENCE",
+            "attempt": 1,
+        },
+        {
+            "agent": "validator",
+            "status": "REJECTED",
+            "attempt": 1,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    metrics = analytics.failure_retry_metrics()
+
+    assert metrics["total_failures"] == 2
+
+    assert metrics["total_retries"] == 2
+
+    assert (
+        metrics["failures_by_agent"]["investigator"]
+        == 2
+    )
+
+    assert (
+        metrics["retries_by_agent"]["investigator"]
+        == 2
+    )
+
+    assert (
+        "reasoner"
+        not in metrics["failures_by_agent"]
+    )
+
+    assert (
+        "validator"
+        not in metrics["failures_by_agent"]
+    )
+
+def test_business_rejections_are_not_execution_failures():
+
+    timeline = [
+        {
+            "agent": "reasoner",
+            "status": "NO_EVIDENCE",
+            "attempt": 1,
+        },
+        {
+            "agent": "validator",
+            "status": "REJECTED",
+            "attempt": 1,
+        },
+        {
+            "agent": "validator",
+            "status": "COMPLETED",
+            "attempt": 1,
+        },
+    ]
+
+    analytics = InvestigationExecutionAnalytics(
+        timeline
+    )
+
+    metrics = analytics.failure_retry_metrics()
+
+    assert metrics["total_failures"] == 0
+
+    assert metrics["total_retries"] == 0
+
+    assert metrics["failures_by_agent"] == {}
+
+    assert metrics["retries_by_agent"] == {}

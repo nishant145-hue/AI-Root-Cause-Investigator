@@ -602,7 +602,7 @@ def build_investigation_graph(
             "reasoner": "reasoner",
             "validator": "validator",
             "planner": "planner",
-            "end": END,
+            "end": "analytics",
         },
     )
 

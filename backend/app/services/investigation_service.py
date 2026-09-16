@@ -4,6 +4,7 @@ from app.agent.execution_manager_provider import (
     get_execution_manager,
 )
 from app.agent.langgraph_runtime import (
+    LangGraphInvestigationOutcome,
     run_langgraph_investigation,
 )
 from app.exceptions.ai_exceptions import AIError
@@ -174,14 +175,14 @@ class InvestigationService:
 
         if old_title != updated.title:
             self.history_service.create(
-        InvestigationHistoryCreate(
-            investigation_id=updated.id,
-            user_id=user_id,
-            action=InvestigationAction.UPDATED,
-            old_value=old_title,
-            new_value=updated.title,
-        )
-    )
+                InvestigationHistoryCreate(
+                    investigation_id=updated.id,
+                    user_id=user_id,
+                    action=InvestigationAction.UPDATED,
+                    old_value=old_title,
+                    new_value=updated.title,
+                )
+            )
 
         if old_status != updated.status:
             self.history_service.create(
@@ -277,7 +278,7 @@ class InvestigationService:
         log_file_id: int,
         user_id: int,
     ) -> tuple[
-        AIInvestigationResponse,
+        LangGraphInvestigationOutcome,
         dict,
     ]:
         """
@@ -306,11 +307,46 @@ class InvestigationService:
                 ),
             )
 
-        return manager.run(
+        execution_result = manager.run(
             investigation_id=investigation.id,
             agent_name="langgraph_investigation",
             fn=execute_langgraph,
         )
+
+        critical_path = manager.investigation_critical_path(
+            investigation.id
+        )
+
+        if isinstance(
+            execution_result,
+            LangGraphInvestigationOutcome,
+        ):
+            outcome = execution_result
+
+            execution_analytics = dict(
+                outcome.execution_analytics or {}
+            )
+
+            execution_analytics["critical_path"] = (
+                critical_path
+            )
+
+            return outcome, execution_analytics
+
+        if isinstance(execution_result, tuple):
+            outcome, execution_analytics = execution_result
+
+            execution_analytics = dict(
+                execution_analytics or {}
+            )
+
+            execution_analytics["critical_path"] = (
+                critical_path
+            )
+
+            return outcome, execution_analytics
+
+        return execution_result
 
     def _save_ai_results(
         self,
@@ -346,6 +382,47 @@ class InvestigationService:
 
         logger.info(
             "AI investigation completed successfully. "
+            "Investigation ID=%d",
+            updated.id,
+        )
+
+        return updated
+
+    def _save_validation_failed_result(
+        self,
+        investigation: Investigation,
+        outcome: LangGraphInvestigationOutcome,
+        execution_analytics: dict | None = None,
+    ) -> Investigation:
+        """
+        Persist an investigation that completed execution but could
+            not validate a root cause.
+        """
+
+        investigation.summary = outcome.summary
+        investigation.root_cause = outcome.root_cause
+        investigation.failed_component = outcome.failed_component
+        investigation.severity = outcome.severity
+        investigation.confidence = outcome.confidence
+        investigation.additional_notes = outcome.additional_notes
+
+
+        investigation.execution_analytics = (
+            execution_analytics
+            if execution_analytics is not None
+            else outcome.execution_analytics
+        )
+        # The investigation itself completed execution successfully.
+        # VALIDATION_FAILED is an AI workflow outcome, not a database
+        # InvestigationStatus value.
+        investigation.status = InvestigationStatus.COMPLETED
+
+        updated = self.repository.update(
+            investigation
+        )
+
+        logger.info(
+            "AI investigation completed without validated root cause. "
             "Investigation ID=%d",
             updated.id,
         )
@@ -403,23 +480,69 @@ class InvestigationService:
                 )
 
             if isinstance(
-                ai_execution_result,
-                tuple,
-            ):
-                ai_result, execution_analytics = (
-                    ai_execution_result
-                )
+                    ai_execution_result,
+                    tuple,
+                ):
+                    execution_result, execution_analytics = (
+                        ai_execution_result
+                    )
             else:
-                # Backward compatibility with the legacy
-                # AIInvestigationResponse contract.
-                ai_result = ai_execution_result
-                execution_analytics = {}
+                    # Backward compatibility with the legacy
+                    # AIInvestigationResponse contract.
+                    execution_result = ai_execution_result
+                    execution_analytics = {}
 
-            updated = self._save_ai_results(
-                investigation=investigation,
-                ai_result=ai_result,
-                execution_analytics=execution_analytics,
-            )
+
+            # --------------------------------------------------------
+            # Handle structured LangGraph outcomes.
+            # --------------------------------------------------------
+
+            if isinstance(
+                    execution_result,
+                    LangGraphInvestigationOutcome,
+                ):
+                    if execution_result.status == "VALIDATION_FAILED":
+
+                        updated = self._save_validation_failed_result(
+                            investigation=investigation,
+                            outcome=execution_result,
+                            execution_analytics=execution_analytics,
+                        )
+                        updated = self._save_validation_failed_result(
+                            investigation=investigation,
+                            outcome=execution_result,
+                            execution_analytics=execution_analytics,
+                        )
+
+                    elif execution_result.status == "ROOT_CAUSE_VALIDATED":
+                        if execution_result.result is None:
+                            raise RuntimeError(
+                            "Validated LangGraph outcome has no result."
+                            )
+
+                        updated = self._save_ai_results(
+                            investigation=investigation,
+                            ai_result=execution_result.result,
+                            execution_analytics=(
+                                execution_result.execution_analytics
+                            ),
+                        )
+
+                    else:
+                        raise RuntimeError(
+                            "Unexpected LangGraph investigation outcome: "
+                            f"{execution_result.status!r}"
+                        )
+
+            else:
+                    # ----------------------------------------------------
+                    # Legacy AIInvestigationResponse compatibility.
+                    # ----------------------------------------------------
+                    updated = self._save_ai_results(
+                        investigation=investigation,
+                        ai_result=execution_result,
+                        execution_analytics=execution_analytics,
+                    )
 
             # Step 4: Save investigation history
             self.history_service.create(

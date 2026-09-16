@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+from dataclasses import dataclass
 from typing import Any
 
 from sqlmodel import Session
@@ -155,6 +157,66 @@ def _map_recommendations(
 
     return recommendations
 
+def _map_validation_failed_state(
+    state: InvestigationState,
+) -> LangGraphInvestigationOutcome:
+    """
+    Convert a completed LangGraph investigation that could not
+    validate a root cause into a runtime outcome.
+
+    This is not an execution failure.
+    """
+
+    summary = state.get("summary")
+
+    if not summary:
+        summary = state.get(
+            "incident_summary",
+            "AI investigation completed without a validated root cause.",
+        )
+
+    remaining_questions = state.get(
+        "remaining_questions",
+        [],
+    )
+
+    additional_notes = state.get("additional_notes")
+
+    validation_note = (
+        "Investigation completed, but no root cause could be "
+        "validated from the available evidence."
+    )
+
+    if remaining_questions:
+        validation_note += (
+            " Remaining investigation questions: "
+            + "; ".join(
+                str(question)
+                for question in remaining_questions
+            )
+        )
+
+    if additional_notes:
+        additional_notes = (
+            f"{additional_notes}\n{validation_note}"
+        )
+    else:
+        additional_notes = validation_note
+
+    return LangGraphInvestigationOutcome(
+        status="VALIDATION_FAILED",
+        result=None,
+        execution_analytics=state.get(
+            "execution_analytics",
+            {},
+        ),
+        summary=str(summary),
+        root_cause=state.get("root_cause"),
+        failed_component=state.get("failed_component"),
+        severity=state.get("severity"),
+        confidence=state.get("confidence"),
+        additional_notes=additional_notes,
+    )
 
 def _map_final_state(
     state: InvestigationState,
@@ -273,6 +335,16 @@ def run_langgraph_investigation(
         try:
             final_state = graph.invoke(initial_state)
         except Exception as exc:
+            import logging
+
+            logger = logging.getLogger(__name__)
+
+            logger.exception(
+                "LangGraph investigation execution failed. "
+                "Investigation ID=%s",
+                investigation_id,
+            )
+
             raise LangGraphInvestigationError(
                 "LangGraph investigation execution failed."
             ) from exc
@@ -282,11 +354,53 @@ def run_langgraph_investigation(
             "LangGraph returned an invalid final state."
         )
 
-    result = _map_final_state(final_state)
+    status = final_state.get("investigation_status")
 
     execution_analytics = final_state.get(
         "execution_analytics",
         {},
     )
 
-    return result, execution_analytics
+    if status == "ROOT_CAUSE_VALIDATED":
+        result = _map_final_state(final_state)
+
+        return LangGraphInvestigationOutcome(
+            status="ROOT_CAUSE_VALIDATED",
+            result=result,
+            execution_analytics=execution_analytics,
+            summary=result.summary,
+            root_cause=result.root_cause,
+            failed_component=result.failed_component,
+            severity=result.severity,
+            confidence=result.confidence,
+            additional_notes=result.additional_notes,
+        )
+
+    if status == "VALIDATION_FAILED":
+        return _map_validation_failed_state(
+            final_state
+        )
+
+    raise LangGraphInvestigationError(
+        "LangGraph investigation ended with an unexpected status. "
+        f"Final status: {status!r}"
+    )
+@dataclass(frozen=True)
+class LangGraphInvestigationOutcome:
+    """
+    Runtime outcome of a LangGraph investigation.
+
+    A validated investigation contains an AIInvestigationResponse.
+    A validation failure represents a successfully executed
+    investigation that did not establish a root cause.
+    """
+
+    status: str
+    result: AIInvestigationResponse | None
+    execution_analytics: dict[str, Any]
+    summary: str
+    root_cause: str | None
+    failed_component: str | None
+    severity: str | None
+    confidence: float | None
+    additional_notes: str | None

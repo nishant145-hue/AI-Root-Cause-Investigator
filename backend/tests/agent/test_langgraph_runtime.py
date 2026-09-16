@@ -2,8 +2,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 from app.agent.langgraph_runtime import (
+    LangGraphInvestigationError,
+    LangGraphInvestigationOutcome,
     _build_initial_state,
     _map_evidence,
+    _map_final_state,
+    _map_validation_failed_state,
+    run_langgraph_investigation,
 )
 
 
@@ -136,3 +141,38 @@ def test_map_final_state_preserves_component_and_severity():
     assert result.severity == "CRITICAL"
     assert result.root_cause == "Connection pool exhausted"
     assert result.confidence == 0.95
+
+def test_map_validation_failed_state():
+    state = {
+        "investigation_status": "VALIDATION_FAILED",
+        "incident_summary": "Database timeout",
+        "summary": "Database investigation completed.",
+        "root_cause": None,
+        "failed_component": "Database",
+        "severity": "Critical",
+        "confidence": None,
+        "evidence": [],
+        "hypotheses": [],
+        "remaining_questions": [
+            "Need additional database logs"
+        ],
+        "execution_analytics": {
+            "execution": {
+                "total_executions": 11,
+            }
+        },
+    }
+
+    outcome = _map_validation_failed_state(state)
+
+    assert outcome.status == "VALIDATION_FAILED"
+    assert outcome.result is None
+    assert outcome.root_cause is None
+    assert outcome.failed_component == "Database"
+    assert outcome.severity == "Critical"
+    assert outcome.execution_analytics["execution"][
+        "total_executions"
+    ] == 11
+    assert "Need additional database logs" in (
+        outcome.additional_notes
+    )

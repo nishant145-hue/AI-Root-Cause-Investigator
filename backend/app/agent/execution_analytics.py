@@ -60,20 +60,24 @@ class InvestigationExecutionAnalytics:
     # ---------------------------------------------------------
 
     def retry_count(self) -> int:
-        attempts = [
-            int(
+        """
+        Count execution traces that represent retries.
+
+        A retry is an execution attempt greater than the
+        initial attempt. This keeps retry_count consistent
+        with failure_retry_metrics().
+        """
+
+        return sum(
+            1
+            for trace in self.timeline
+            if int(
                 trace.get(
                     "attempt",
                     1,
                 )
                 or 1
-            )
-            for trace in self.timeline
-        ]
-
-        return sum(
-            max(attempt - 1, 0)
-            for attempt in attempts
+            ) > 1
         )
 
     # ---------------------------------------------------------
@@ -530,6 +534,8 @@ class InvestigationExecutionAnalytics:
         """
 
         return {
+            "timeline": list(self.timeline),
+
             "execution": {
                 "total_executions": (
                     self.total_executions()

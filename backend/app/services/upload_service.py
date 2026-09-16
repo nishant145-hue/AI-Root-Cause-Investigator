@@ -219,6 +219,7 @@ async def process_upload(
         )
 
     return {
+        "id": log_file.id,
         "filename": file.filename,
         "saved_as": unique_filename,
         "file_path": str(destination),

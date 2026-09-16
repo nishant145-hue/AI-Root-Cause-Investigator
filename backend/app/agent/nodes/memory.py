@@ -5,6 +5,7 @@ from app.agent.memory.historical import (
 )
 from app.agent.state import InvestigationState
 from app.agent.state_timeline import (
+    execute_timeline_operation,
     propagate_timeline,
 )
 from app.vectorstore.retriever import (
@@ -36,12 +37,12 @@ def memory_node(
         "incident_summary"
     ]
 
-    # ---------------------------------------------------------
-    # PostgreSQL historical memory
+        # ---------------------------------------------------------
+    # Historical + semantic memory retrieval
     # ---------------------------------------------------------
 
-    historical_incidents = (
-        search_historical_incidents(
+    def retrieve_memory():
+        historical = search_historical_incidents(
             session=session,
             current_investigation_id=(
                 investigation_id
@@ -50,18 +51,29 @@ def memory_node(
             incident_summary=incident_summary,
             limit=5,
         )
-    )
 
-    # ---------------------------------------------------------
-    # Qdrant semantic memory
-    # ---------------------------------------------------------
+        retriever = InvestigationRetriever()
 
-    retriever = InvestigationRetriever()
+        semantic = retriever.search(
+            query=incident_summary,
+            limit=5,
+            user_id=user_id,
+        )
 
-    semantic_incidents = retriever.search(
-        query=incident_summary,
-        limit=5,
-        user_id=user_id,
+        return historical, semantic
+
+    (
+        historical_incidents,
+        semantic_incidents,
+    ), trace_entry = execute_timeline_operation(
+        state,
+        agent="memory",
+        action="retrieve_historical_memory",
+        metadata={
+            "historical_limit": 5,
+            "semantic_limit": 5,
+        },
+        operation=retrieve_memory,
     )
 
     # ---------------------------------------------------------
@@ -114,8 +126,7 @@ def memory_node(
     # ---------------------------------------------------------
 
     timeline_entry = {
-        "agent": "memory",
-        "action": "retrieve_historical_memory",
+        **trace_entry,
         "status": "COMPLETED",
         "historical_count": len(
             historical_incidents

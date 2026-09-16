@@ -148,3 +148,166 @@ def test_invalid_timeline_entries_are_ignored():
     assert entry.agent == "investigator"
     assert entry.status == "COMPLETED"
     assert entry.duration_ms is None
+
+def test_persisted_unified_analytics_are_normalized():
+    result = (
+        AnalyticsValidationService.build_dashboard(
+            investigation_id=2701,
+            analytics={
+                "execution": {
+                    "total_executions": 11,
+                    "successful_executions": 7,
+                    "failed_executions": 0,
+                    "total_duration_ms": 0.04,
+                    "retry_count": 2,
+                    "agent_execution_counts": {
+                        "memory": 1,
+                        "orchestrator": 3,
+                        "investigator": 3,
+                        "reasoner": 3,
+                        "validator": 1,
+                    },
+                    "slowest_agent": "orchestrator",
+                    "slowest_agent_duration_ms": 0.02,
+                },
+                "agent_performance": {
+                    "memory": {
+                        "execution_count": 1,
+                        "success_count": 1,
+                        "failure_count": 0,
+                        "total_duration_ms": 0.0,
+                        "average_duration_ms": 0.0,
+                        "failure_rate": 0.0,
+                    },
+                    "orchestrator": {
+                        "execution_count": 3,
+                        "success_count": 3,
+                        "failure_count": 0,
+                        "total_duration_ms": 0.04,
+                        "average_duration_ms": 0.01,
+                        "failure_rate": 0.0,
+                    },
+                    "investigator": {
+                        "execution_count": 3,
+                        "success_count": 3,
+                        "failure_count": 0,
+                        "total_duration_ms": 0.0,
+                        "average_duration_ms": 0.0,
+                        "failure_rate": 0.0,
+                    },
+                    "reasoner": {
+                        "execution_count": 3,
+                        "success_count": 0,
+                        "failure_count": 0,
+                        "total_duration_ms": 0.0,
+                        "average_duration_ms": 0.0,
+                        "failure_rate": 0.0,
+                    },
+                    "validator": {
+                        "execution_count": 1,
+                        "success_count": 0,
+                        "failure_count": 0,
+                        "total_duration_ms": 0.0,
+                        "average_duration_ms": 0.0,
+                        "failure_rate": 0.0,
+                    },
+                },
+                "failure_retry": {
+                    "total_failures": 0,
+                    "total_retries": 2,
+                    "failures_by_agent": {},
+                    "retries_by_agent": {
+                        "investigator": 2,
+                    },
+                },
+                "bottlenecks": [
+                    {
+                        "agent": "orchestrator",
+                        "average_duration_ms": 0.01,
+                        "overall_average_duration_ms": 0.0,
+                        "slowdown_ratio": 2.5,
+                    }
+                ],
+                "efficiency": {
+                    "score": 69.55,
+                    "rating": "FAIR",
+                    "success_rate": 0.6364,
+                    "failure_rate": 0.0,
+                    "retry_rate": 0.1818,
+                    "bottleneck_count": 1,
+                },
+                "critical_path": {
+                    "critical_path_ms": 125.50,
+                    "executions": [
+                        "execution-root",
+                        "execution-child",
+                    ],
+                },
+            },
+        )
+    )
+
+    overview = result.overview
+
+    assert overview.total_executions == 11
+    assert overview.successful_executions == 7
+    assert overview.failed_executions == 0
+    assert overview.total_duration_ms == 0.04
+    assert overview.average_duration_ms == (
+        0.04 / 11
+    )
+    assert overview.retry_count == 2
+    assert overview.success_rate == 0.6364
+    assert overview.failure_rate == 0.0
+    assert overview.efficiency_score == 69.55
+    assert overview.slowest_agent == "orchestrator"
+    assert overview.bottleneck_count == 1
+    assert overview.total_agents == 5
+
+    assert len(result.agent_performance) == 5
+
+    orchestrator = next(
+        agent
+        for agent in result.agent_performance
+        if agent.agent == "orchestrator"
+    )
+
+    assert orchestrator.executions == 3
+    assert orchestrator.successful_executions == 3
+    assert orchestrator.failed_executions == 0
+    assert orchestrator.average_duration_ms == 0.01
+
+    assert result.failure_retry_metrics.total_failures == 0
+    assert result.failure_retry_metrics.total_retries == 2
+    assert result.failure_retry_metrics.retry_by_agent[
+        "investigator"
+    ] == 2
+
+    assert len(result.bottlenecks) == 1
+
+    bottleneck = result.bottlenecks[0]
+
+    assert bottleneck.agent == "orchestrator"
+    assert bottleneck.execution_count == 3
+    assert bottleneck.is_bottleneck is True
+    assert result.critical_path.critical_path_ms == 125.50
+    assert result.critical_path.executions == [
+        "execution-root",
+        "execution-child",
+    ]
+
+def test_invalid_critical_path_is_normalized():
+    result = (
+        AnalyticsValidationService.build_dashboard(
+            investigation_id=7,
+            analytics={
+                "critical_path": {
+                    "critical_path_ms": -500,
+                    "executions": "invalid",
+                }
+            },
+        )
+    )
+
+    assert result.critical_path.critical_path_ms == 0.0
+    assert result.critical_path.executions == []

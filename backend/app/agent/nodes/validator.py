@@ -1,5 +1,6 @@
 from app.agent.state import InvestigationState
 from app.agent.state_timeline import (
+    execute_timeline_operation,
     propagate_timeline,
 )
 
@@ -17,33 +18,59 @@ def validator_node(
     hypotheses = state.get("hypotheses", [])
 
     if not hypotheses:
+        _, trace_entry = execute_timeline_operation(
+            state,
+            agent="validator",
+            action="validate_root_cause",
+            metadata={
+                "business_status": "REJECTED",
+                "reason": "No hypothesis available",
+            },
+            operation=lambda: None,
+        )
+
         timeline_entry = {
-        "agent": "validator",
-        "action": "validate_root_cause",
-        "status": "REJECTED",
-        "reason": "No hypothesis available",
-    }
+            **trace_entry,
+            "status": "REJECTED",
+            "reason": "No hypothesis available",
+        }
 
         updated_timeline = propagate_timeline(
-        state,
-        [timeline_entry],
+            state,
+            [timeline_entry],
         )["execution_timeline"]
 
         return {
-        "current_step": "Validation failed",
-        "investigation_status": "VALIDATION_FAILED",
-        "remaining_questions": [
-            "No hypothesis available for validation."
-        ],
-        "execution_timeline": updated_timeline,
-    }
+            "current_step": "Validation failed",
+            "investigation_status": "VALIDATION_FAILED",
+            "remaining_questions": [
+                "No hypothesis available for validation."
+            ],
+            "execution_timeline": updated_timeline,
+        }
 
-    strongest = max(
-        hypotheses,
-        key=lambda hypothesis: hypothesis["confidence"],
+    def validate_hypothesis():
+        strongest = max(
+            hypotheses,
+            key=lambda hypothesis: hypothesis["confidence"],
+        )
+
+        confidence = strongest["confidence"]
+
+        return strongest, confidence
+
+    (strongest, confidence), trace_entry = (
+        execute_timeline_operation(
+            state,
+            agent="validator",
+            action="validate_root_cause",
+            metadata={
+                "hypothesis_count": len(hypotheses),
+                "validation_threshold": 0.70,
+            },
+            operation=validate_hypothesis,
+        )
     )
-
-    confidence = strongest["confidence"]
 
     if confidence >= 0.70:
         validated_hypotheses = [
@@ -58,11 +85,10 @@ def validator_node(
             for hypothesis in hypotheses
         ]
         timeline_entry = {
-        "agent": "validator",
-        "action": "validate_root_cause",
-        "status": "COMPLETED",
-        "confidence": confidence,
-        "root_cause": strongest["cause"],
+            **trace_entry,
+            "status": "COMPLETED",
+            "confidence": confidence,
+            "root_cause": strongest["cause"],
         }
         updated_timeline = propagate_timeline(
             state,
@@ -86,11 +112,10 @@ def validator_node(
             }
 
     timeline_entry = {
-    "agent": "validator",
-    "action": "validate_root_cause",
-    "status": "REJECTED",
-    "confidence": confidence,
-}
+        **trace_entry,
+        "status": "REJECTED",
+        "confidence": confidence,
+    }
     updated_timeline = propagate_timeline(
     state,
     [timeline_entry],

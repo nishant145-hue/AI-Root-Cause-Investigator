@@ -31,6 +31,12 @@ def test_dashboard_analytics_empty():
         result.overview.efficiency_score
         == 0.0
     )
+    assert (
+        result.critical_path.critical_path_ms
+        == 0.0
+    )
+
+    assert result.critical_path.executions == []
 
     assert result.agent_performance == []
 
@@ -38,6 +44,39 @@ def test_dashboard_analytics_empty():
 
     assert result.timeline == []
 
+def test_dashboard_critical_path():
+
+    critical_path = {
+        "investigation_id": 1,
+        "critical_path_ms": 450.75,
+        "executions": [
+            "execution-1",
+            "execution-2",
+            "execution-4",
+        ],
+    }
+
+    result = build_analytics_dashboard(
+        investigation_id=1,
+        timeline=[],
+        critical_path=critical_path,
+    )
+
+    assert result.investigation_id == 1
+
+    assert (
+        result.critical_path.critical_path_ms
+        == 450.75
+    )
+
+    assert (
+        result.critical_path.executions
+        == [
+            "execution-1",
+            "execution-2",
+            "execution-4",
+        ]
+    )
 
 def test_dashboard_analytics_builds_overview():
 

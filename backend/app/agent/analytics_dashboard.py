@@ -8,15 +8,16 @@ from app.schemas.analytics import (
     AgentPerformanceRead,
     AnalyticsOverview,
     BottleneckRead,
+    CriticalPathRead,
     ExecutionTimelineEntryRead,
     FailureRetryMetricsRead,
     InvestigationAnalyticsDashboardRead,
 )
 
-
 def build_analytics_dashboard(
     investigation_id: int,
     timeline: list[dict[str, Any]] | None = None,
+    critical_path: dict[str, Any] | None = None,
 ) -> InvestigationAnalyticsDashboardRead:
     """
     Build a dashboard-ready analytics response from
@@ -509,6 +510,33 @@ def build_analytics_dashboard(
         )
 
     # ---------------------------------------------------------
+    # Critical path
+    # ---------------------------------------------------------
+
+    critical_path = critical_path or {}
+
+    critical_path_read = CriticalPathRead(
+        critical_path_ms=float(
+            critical_path.get(
+                "critical_path_ms",
+                0.0,
+            )
+            or 0.0
+        ),
+        executions=[
+            str(execution_id)
+            for execution_id in (
+                critical_path.get(
+                    "executions",
+                    [],
+                )
+                or []
+            )
+            if execution_id is not None
+        ],
+    )
+
+    # ---------------------------------------------------------
     # Final dashboard response
     # ---------------------------------------------------------
 
@@ -528,4 +556,8 @@ def build_analytics_dashboard(
         ),
 
         timeline=timeline_entries,
+
+        critical_path=(
+            critical_path_read
+        ),
     )

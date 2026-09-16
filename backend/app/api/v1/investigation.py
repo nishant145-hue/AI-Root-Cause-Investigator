@@ -4,6 +4,12 @@ from typing import Annotated
 from app.agent.analytics_dashboard import (
     build_analytics_dashboard,
 )
+from app.agent.execution_manager import (
+    AgentExecutionManager,
+)
+from app.agent.execution_manager_provider import (
+    get_execution_manager,
+)
 from app.auth.dependencies import (
     get_current_user,
 )
@@ -301,7 +307,11 @@ def get_investigation_analytics_report(
     session: Session = Depends(
         get_session
     ),
+    manager: AgentExecutionManager = Depends(
+    get_execution_manager
+    ),
 ):
+
     investigation = session.exec(
         select(Investigation).where(
             Investigation.id == investigation_id,
@@ -329,9 +339,16 @@ def get_investigation_analytics_report(
         []
     )
 
+    critical_path = (
+        manager.investigation_critical_path(
+            investigation_id
+        )
+    )
+
     return build_analytics_dashboard(
         investigation_id=investigation_id,
         timeline=timeline,
+        critical_path=critical_path,
     )
 @router.put(
     "/{investigation_id}",

@@ -5,11 +5,11 @@ from app.schemas.analytics import (
     AgentPerformanceRead,
     AnalyticsOverview,
     BottleneckRead,
+    CriticalPathRead,
     ExecutionTimelineEntryRead,
     FailureRetryMetricsRead,
     InvestigationAnalyticsDashboardRead,
 )
-
 
 class AnalyticsValidationService:
     """
@@ -107,13 +107,13 @@ class AnalyticsValidationService:
         successful_executions = max(
             0,
             cls._safe_int(
-            data.get(
-                "successful_executions",
                 data.get(
-                    "success_count",
+                    "successful_executions",
                     data.get(
-                        "successes",
-                        0,
+                        "success_count",
+                        data.get(
+                            "successes",
+                            0,
                         ),
                     ),
                 )
@@ -125,16 +125,16 @@ class AnalyticsValidationService:
             cls._safe_int(
                 data.get(
                     "failed_executions",
-                data.get(
-                    "failure_count",
-                data.get(
-                    "failures",
-                    0,
+                    data.get(
+                        "failure_count",
+                        data.get(
+                            "failures",
+                            0,
+                        ),
                     ),
-                ),
-            )
-        ),
-    )
+                )
+            ),
+        )
 
         total_duration_ms = max(
             0.0,
@@ -142,6 +142,21 @@ class AnalyticsValidationService:
                 data.get(
                     "total_duration_ms",
                     0.0,
+                )
+            ),
+        )
+
+        average_duration_ms = max(
+            0.0,
+            cls._safe_float(
+                data.get(
+                    "average_duration_ms",
+                    (
+                        total_duration_ms
+                        / total_executions
+                        if total_executions
+                        else 0.0
+                    ),
                 )
             ),
         )
@@ -156,6 +171,48 @@ class AnalyticsValidationService:
                         0,
                     ),
                 )
+            ),
+        )
+
+        # success_rate / failure_rate are represented as
+        # fractions between 0 and 1 in AnalyticsOverview.
+        success_rate = cls._safe_float(
+            data.get(
+                "success_rate",
+                (
+                    successful_executions
+                    / total_executions
+                    if total_executions
+                    else 0.0
+                ),
+            )
+        )
+
+        failure_rate = cls._safe_float(
+            data.get(
+                "failure_rate",
+                (
+                    failed_executions
+                    / total_executions
+                    if total_executions
+                    else 0.0
+                ),
+            )
+        )
+
+        success_rate = max(
+            0.0,
+            min(
+                1.0,
+                success_rate,
+            ),
+        )
+
+        failure_rate = max(
+            0.0,
+            min(
+                1.0,
+                failure_rate,
             ),
         )
 
@@ -174,15 +231,52 @@ class AnalyticsValidationService:
             ),
         )
 
+        slowest_agent_raw = data.get(
+            "slowest_agent"
+        )
+
+        slowest_agent = (
+            cls._safe_str(
+                slowest_agent_raw,
+                "",
+            )
+            or None
+        )
+
+        bottleneck_count = max(
+            0,
+            cls._safe_int(
+                data.get(
+                    "bottleneck_count",
+                    0,
+                )
+            ),
+        )
+
+        total_agents = max(
+            0,
+            cls._safe_int(
+                data.get(
+                    "total_agents",
+                    0,
+                )
+            ),
+        )
+
         return AnalyticsOverview(
             total_executions=total_executions,
             successful_executions=successful_executions,
             failed_executions=failed_executions,
             total_duration_ms=total_duration_ms,
+            average_duration_ms=average_duration_ms,
             retry_count=retry_count,
+            success_rate=success_rate,
+            failure_rate=failure_rate,
             efficiency_score=efficiency_score,
+            slowest_agent=slowest_agent,
+            bottleneck_count=bottleneck_count,
+            total_agents=total_agents,
         )
-
     # ============================================================
     # Agent performance normalization
     # ============================================================
@@ -387,6 +481,16 @@ class AnalyticsValidationService:
                 ),
             )
 
+            slowdown_ratio = max(
+                0.0,
+                cls._safe_float(
+                    data.get(
+                        "slowdown_ratio",
+                        0.0,
+                    )
+                ),
+            )
+
             is_bottleneck = bool(
                 data.get(
                     "is_bottleneck",
@@ -409,6 +513,7 @@ class AnalyticsValidationService:
                         execution_count
                     ),
                     threshold_ms=threshold_ms,
+                    slowdown_ratio=slowdown_ratio,
                     is_bottleneck=is_bottleneck,
                 )
             )
@@ -764,6 +869,325 @@ class AnalyticsValidationService:
                     )
                 )
             )
+
+            # ------------------------------------------------------------
+            # Support persisted unified execution analytics.
+            #
+            # LangGraph persists:
+            #   execution
+            #   agent_performance (dict keyed by agent)
+            #   failure_retry
+            #   bottlenecks
+            #   efficiency
+            #
+            # The dashboard API expects:
+            #   overview
+            #   agent_performance (list)
+            #   failure_retry_metrics
+            # ------------------------------------------------------------
+
+            persisted_execution = cls._safe_dict(
+                analytics.get("execution")
+            )
+
+            persisted_efficiency = cls._safe_dict(
+                analytics.get("efficiency")
+            )
+
+            persisted_agent_performance = analytics.get(
+                "agent_performance",
+                [],
+            )
+
+            persisted_bottlenecks = analytics.get(
+                "bottlenecks",
+                [],
+            )
+
+            # --------------------------------------------------------
+            # Adapt persisted execution + efficiency -> overview.
+            # --------------------------------------------------------
+
+            if (
+                not analytics.get("overview")
+                and persisted_execution
+            ):
+                total_executions = max(
+                    0,
+                    cls._safe_int(
+                        persisted_execution.get(
+                            "total_executions",
+                            0,
+                        )
+                    ),
+                )
+
+                successful_executions = max(
+                    0,
+                    cls._safe_int(
+                        persisted_execution.get(
+                            "successful_executions",
+                            0,
+                        )
+                    ),
+                )
+
+                failed_executions = max(
+                    0,
+                    cls._safe_int(
+                        persisted_execution.get(
+                            "failed_executions",
+                            0,
+                        )
+                    ),
+                )
+
+                total_duration_ms = max(
+                    0.0,
+                    cls._safe_float(
+                        persisted_execution.get(
+                            "total_duration_ms",
+                            0.0,
+                        )
+                    ),
+                )
+
+                retry_count = max(
+                    0,
+                    cls._safe_int(
+                        persisted_execution.get(
+                            "retry_count",
+                            0,
+                        )
+                    ),
+                )
+
+                success_rate = cls._safe_float(
+                    persisted_efficiency.get(
+                        "success_rate",
+                        (
+                            successful_executions
+                            / total_executions
+                            if total_executions
+                            else 0.0
+                        ),
+                    )
+                )
+
+                failure_rate = cls._safe_float(
+                    persisted_efficiency.get(
+                        "failure_rate",
+                        (
+                            failed_executions
+                            / total_executions
+                            if total_executions
+                            else 0.0
+                        ),
+                    )
+                )
+
+                efficiency_score = cls._safe_float(
+                    persisted_efficiency.get(
+                        "score",
+                        0.0,
+                    )
+                )
+
+                average_duration_ms = (
+                    total_duration_ms
+                    / total_executions
+                    if total_executions
+                    else 0.0
+                )
+
+                analytics["overview"] = {
+                    "total_executions": total_executions,
+                    "successful_executions": (
+                        successful_executions
+                    ),
+                    "failed_executions": failed_executions,
+                    "total_duration_ms": total_duration_ms,
+                    "average_duration_ms": (
+                        average_duration_ms
+                    ),
+                    "retry_count": retry_count,
+                    "success_rate": max(
+                        0.0,
+                        min(1.0, success_rate),
+                    ),
+                    "failure_rate": max(
+                        0.0,
+                        min(1.0, failure_rate),
+                    ),
+                    "efficiency_score": max(
+                        0.0,
+                        min(100.0, efficiency_score),
+                    ),
+                    "slowest_agent": (
+                        persisted_execution.get(
+                            "slowest_agent"
+                        )
+                    ),
+                    "bottleneck_count": max(
+                        0,
+                        cls._safe_int(
+                            persisted_efficiency.get(
+                                "bottleneck_count",
+                                len(
+                                    cls._safe_list(
+                                        persisted_bottlenecks
+                                    )
+                                ),
+                            )
+                        ),
+                    ),
+                    "total_agents": (
+                        len(persisted_agent_performance)
+                        if isinstance(
+                            persisted_agent_performance,
+                            dict,
+                        )
+                        else len(
+                            cls._safe_list(
+                                persisted_agent_performance
+                            )
+                        )
+                    ),
+                }
+
+            # --------------------------------------------------------
+            # Adapt agent_performance dict -> list.
+            # --------------------------------------------------------
+
+            if isinstance(
+                persisted_agent_performance,
+                dict,
+            ):
+                analytics["agent_performance"] = [
+                    {
+                        "agent": agent,
+                        **cls._safe_dict(
+                            performance
+                        ),
+                    }
+                    for agent, performance
+                    in persisted_agent_performance.items()
+                ]
+
+            # ------------------------------------------------------------
+            # Adapt persisted bottlenecks.
+            #
+            # LangGraph persists bottlenecks using slowdown_ratio,
+            # while the dashboard schema uses is_bottleneck.
+            # ------------------------------------------------------------
+
+            if isinstance(
+                persisted_bottlenecks,
+                list,
+            ):
+                normalized_bottlenecks = []
+
+                for bottleneck in persisted_bottlenecks:
+                    data = cls._safe_dict(
+                    bottleneck
+                    )
+
+                    agent = cls._safe_str(
+                        data.get(
+                            "agent",
+                            "unknown",
+                        ),
+                        "unknown",
+                    )
+
+                    average_duration_ms = max(
+                        0.0,
+                        cls._safe_float(
+                            data.get(
+                                "average_duration_ms",
+                                0.0,
+                            )
+                        ),
+                    )
+
+                    if isinstance(
+                        persisted_agent_performance,
+                        dict,
+                    ):
+                        agent_metrics = cls._safe_dict(
+                            persisted_agent_performance.get(
+                                agent
+                            )
+                            )
+
+                        execution_count = max(
+                            0,
+                            cls._safe_int(
+                                agent_metrics.get(
+                                    "execution_count",
+                                    0,
+                                )
+                            ),
+                        )
+                    else:
+                        execution_count = max(
+                            0,
+                            cls._safe_int(
+                                data.get(
+                                    "execution_count",
+                                    data.get(
+                                        "executions",
+                                        0,
+                                    ),
+                                )
+                            ),
+                        )
+
+                    # The persisted analytics engine has already
+                    # identified this agent as a bottleneck.
+                    is_bottleneck = bool(
+                        data.get(
+                            "is_bottleneck",
+                            True,
+                        )
+                    )
+
+                    normalized_bottlenecks.append(
+                        {
+                        **data,
+                        "agent": agent,
+                        "average_duration_ms": (
+                            average_duration_ms
+                        ),
+                        "execution_count": (
+                            execution_count
+                        ),
+                        "is_bottleneck": (
+                            is_bottleneck
+                        ),
+                        }
+                    )
+
+                analytics["bottlenecks"] = (
+                    normalized_bottlenecks
+                    )
+            # --------------------------------------------------------
+            # Adapt failure_retry -> failure_retry_metrics.
+            # --------------------------------------------------------
+
+            if (
+                not analytics.get(
+                    "failure_retry_metrics"
+                )
+                and analytics.get(
+                    "failure_retry"
+                )
+            ):
+                analytics["failure_retry_metrics"] = (
+                    analytics.get(
+                        "failure_retry"
+                    )
+                )
 
             # ----------------------------------------------------
             # Overview
@@ -1141,6 +1565,35 @@ class AnalyticsValidationService:
                 )
 
             # ----------------------------------------------------
+            # Critical path
+            # ----------------------------------------------------
+
+            persisted_critical_path = cls._safe_dict(
+                analytics.get("critical_path")
+            )
+
+            critical_path = CriticalPathRead(
+                critical_path_ms=max(
+                    0.0,
+                    cls._safe_float(
+                        persisted_critical_path.get(
+                            "critical_path_ms",
+                            0.0,
+                        )
+                    ),
+                ),
+                executions=[
+                    str(execution)
+                    for execution in cls._safe_list(
+                        persisted_critical_path.get(
+                            "executions",
+                            [],
+                        )
+                    )
+                    if execution is not None
+                ],
+            )
+            # ----------------------------------------------------
             # Final response
             # ----------------------------------------------------
 
@@ -1158,6 +1611,7 @@ class AnalyticsValidationService:
                         failure_retry_metrics
                     ),
                     timeline=timeline_data,
+                    critical_path=critical_path,
                 )
             )
 

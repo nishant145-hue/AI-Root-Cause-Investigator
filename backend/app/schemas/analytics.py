@@ -57,9 +57,9 @@ class BottleneckRead(BaseModel):
     execution_count: int = 0
 
     threshold_ms: float = 0.0
+    slowdown_ratio: float = 0.0
 
     is_bottleneck: bool = False
-
 
 class FailureRetryMetricsRead(BaseModel):
     total_failures: int = 0
@@ -88,6 +88,12 @@ class ExecutionTimelineEntryRead(BaseModel):
         default_factory=dict
     )
 
+class CriticalPathRead(BaseModel):
+    critical_path_ms: float = 0.0
+
+    executions: list[str] = Field(
+        default_factory=list
+    )
 
 class InvestigationAnalyticsDashboardRead(BaseModel):
     investigation_id: int
@@ -109,3 +115,7 @@ class InvestigationAnalyticsDashboardRead(BaseModel):
     timeline: list[
         ExecutionTimelineEntryRead
     ] = Field(default_factory=list)
+
+    critical_path: CriticalPathRead = Field(
+        default_factory=CriticalPathRead
+    )

@@ -2,6 +2,7 @@ from sqlmodel import Session
 
 from app.agent.state import InvestigationState
 from app.agent.state_timeline import (
+    execute_timeline_operation,
     propagate_timeline,
 )
 from app.agent.tools.evidence import extract_evidence
@@ -55,15 +56,25 @@ def investigator_node(
     # Search logs
     # ---------------------------------------------------------
 
-    logs = search_logs(
-        session=session,
-        log_file_id=log_file_id,
-        query=parameters.get("query"),
-        severity=parameters.get("severity"),
-        component=parameters.get("component"),
-        limit=parameters.get(
-            "limit",
-            50,
+    logs, trace_entry = execute_timeline_operation(
+        state,
+        agent="investigator",
+        action=action["tool"],
+        attempt=attempts,
+        metadata={
+            "reason": action["reason"],
+            "parameters": parameters,
+        },
+        operation=lambda: search_logs(
+            session=session,
+            log_file_id=log_file_id,
+            query=parameters.get("query"),
+            severity=parameters.get("severity"),
+            component=parameters.get("component"),
+            limit=parameters.get(
+                "limit",
+                50,
+            ),
         ),
     )
 
@@ -192,8 +203,7 @@ def investigator_node(
     # ---------------------------------------------------------
 
     timeline_entry = {
-        "agent": "investigator",
-        "action": action["tool"],
+        **trace_entry,
         "status": "COMPLETED",
         "attempt": attempts,
         "result_count": len(logs),
