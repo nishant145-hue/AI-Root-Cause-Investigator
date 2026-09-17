@@ -9,8 +9,10 @@ import {
   Settings,
   Upload,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useAuth } from "../../context/AuthContext";
+import notificationApi from "../../services/notificationApi";
 
 const navigation = [
   {
@@ -54,6 +56,33 @@ function AppLayout() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  async function loadUnreadCount() {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+
+    try {
+      const count =
+        await notificationApi.getUnreadCount();
+
+      setUnreadCount(count);
+    } catch (err) {
+      console.error(
+        "Failed to load notification unread count:",
+        err,
+      );
+
+      setUnreadCount(0);
+    }
+  }
+
+  useEffect(() => {
+    loadUnreadCount();
+  }, [user]);
+
   async function handleLogout() {
     await logout();
     navigate("/login", { replace: true });
@@ -72,18 +101,35 @@ function AppLayout() {
         </div>
 
         <nav className="app-navigation">
-          {navigation.map(({ label, path, icon: Icon }) => (
-            <NavLink
-              key={path}
-              to={path}
-              className={({ isActive }) =>
-                `app-nav-link ${isActive ? "active" : ""}`
-              }
-            >
-              <Icon size={19} />
-              <span>{label}</span>
-            </NavLink>
-          ))}
+          {navigation.map(
+            ({ label, path, icon: Icon }) => (
+              <NavLink
+                key={path}
+                to={path}
+                className={({ isActive }) =>
+                  `app-nav-link ${
+                    isActive ? "active" : ""
+                  }`
+                }
+              >
+                <Icon size={19} />
+
+                <span>{label}</span>
+
+                {path === "/notifications" &&
+                  unreadCount > 0 && (
+                    <span
+                      className="notification-nav-badge"
+                      aria-label={`${unreadCount} unread notifications`}
+                    >
+                      {unreadCount > 99
+                        ? "99+"
+                        : unreadCount}
+                    </span>
+                  )}
+              </NavLink>
+            ),
+          )}
         </nav>
 
         <div className="app-sidebar-footer">
@@ -95,11 +141,14 @@ function AppLayout() {
       <div className="app-main">
         <header className="app-header">
           <div>
-            <strong>AI Root Cause Investigator</strong>
+            <strong>
+              AI Root Cause Investigator
+            </strong>
 
             {user && (
               <small className="app-user">
-                {user.full_name || user.username}
+                {user.full_name ||
+                  user.username}
               </small>
             )}
           </div>
