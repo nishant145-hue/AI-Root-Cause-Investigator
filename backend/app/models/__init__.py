@@ -6,3 +6,4 @@ from app.models.notification_preference import NotificationPreference
 from app.models.parsed_log import ParsedLog
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.models.report_history import ReportHistory

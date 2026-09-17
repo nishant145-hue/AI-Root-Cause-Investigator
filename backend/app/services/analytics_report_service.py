@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from uuid import uuid4
 
@@ -59,8 +60,27 @@ class AnalyticsReportService:
         value,
     ):
         """
-        Prevent spreadsheet formula injection.
+        Convert values into Excel-safe scalar values.
+
+        Nested dictionaries/lists are serialized as JSON strings
+        because openpyxl cannot write Python mappings or sequences
+        directly into worksheet cells.
+
+        Also prevents spreadsheet formula injection.
         """
+
+        if isinstance(
+            value,
+            (dict, list, tuple, set),
+        ):
+            try:
+                value = json.dumps(
+                    value,
+                    ensure_ascii=False,
+                    default=str,
+                )
+            except (TypeError, ValueError):
+                value = str(value)
 
         if not isinstance(value, str):
             return value
@@ -73,7 +93,6 @@ class AnalyticsReportService:
             return "'" + value
 
         return value
-
     # ---------------------------------------------------------
     # JSON
     # ---------------------------------------------------------
@@ -141,10 +160,44 @@ class AnalyticsReportService:
         ]
 
     def _agent_rows(self) -> list[dict]:
-        return self.analytics.get(
+        """
+        Normalize agent performance analytics into spreadsheet rows.
+
+        The analytics payload stores agent performance as a mapping
+        keyed by agent name, while the report writers expect a list
+        of dictionaries.
+        """
+
+        agent_performance = self.analytics.get(
             "agent_performance",
             [],
         )
+
+        if isinstance(agent_performance, dict):
+            rows = []
+
+            for agent, metrics in agent_performance.items():
+                if isinstance(metrics, dict):
+                    rows.append(
+                        {
+                            "agent": agent,
+                            **metrics,
+                        }
+                    )
+                else:
+                    rows.append(
+                        {
+                            "agent": agent,
+                            "value": metrics,
+                        }
+                    )
+
+            return rows
+
+        if isinstance(agent_performance, list):
+            return agent_performance
+
+        return []
 
     def _bottleneck_rows(self) -> list[dict]:
         return self.analytics.get(

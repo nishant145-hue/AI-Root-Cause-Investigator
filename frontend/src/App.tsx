@@ -17,6 +17,7 @@ import Settings from "./pages/Settings";
 import Upload from "./pages/Upload";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import CreateInvestigation from "./pages/CreateInvestigation";
+import Reports from "./pages/Reports";
 
 function App() {
   return (
@@ -51,6 +52,11 @@ function App() {
             <Route
               path="/observability"
               element={<Observability />}
+            />
+
+            <Route
+              path="/reports"
+              element={<Reports />}
             />
 
             <Route path="/uploads" element={<Upload />} />

@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import {
   Activity,
   Bell,
+  FileText,
   LayoutDashboard,
   LogOut,
   Search,
@@ -26,6 +27,11 @@ const navigation = [
     label: "Observability",
     path: "/observability",
     icon: Activity,
+  },
+  {
+    label: "Reports",
+    path: "/reports",
+    icon: FileText,
   },
   {
     label: "Uploads",

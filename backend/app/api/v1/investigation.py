@@ -49,6 +49,7 @@ from app.schemas.investigation import (
 from app.schemas.investigation_history import (
     InvestigationHistoryList,
 )
+from app.services.report_history_service import ReportHistoryService
 from app.services.analytics_report_service import (
     AnalyticsReportService,
 )
@@ -574,6 +575,7 @@ def export_analytics_json(
             detail="Investigation not found.",
         )
 
+
     analytics = (
         getattr(
             investigation,
@@ -583,10 +585,12 @@ def export_analytics_json(
         or {}
     )
 
-    report = {
-        "investigation_id": investigation_id,
-        **analytics,
-    }
+    dashboard = AnalyticsValidationService.build_dashboard(
+        investigation_id=investigation_id,
+        analytics=analytics,
+    )
+
+    report = dashboard.model_dump()
 
     return report
 
@@ -627,10 +631,12 @@ def export_analytics_csv(
         or {}
     )
 
-    report = {
-        "investigation_id": investigation_id,
-        **analytics,
-    }
+    dashboard = AnalyticsValidationService.build_dashboard(
+        investigation_id=investigation_id,
+        analytics=analytics,
+    )
+
+    report = dashboard.model_dump()
 
     service = AnalyticsReportService(
         report
@@ -638,13 +644,23 @@ def export_analytics_csv(
 
     file_path = service.export_csv()
 
+    filename = (
+        f"investigation_"
+        f"{investigation_id}_analytics.csv"
+    )
+
+    ReportHistoryService(session).record_report(
+        user_id=current_user.id,
+        investigation_id=investigation_id,
+        report_type="INVESTIGATION_ANALYTICS",
+        format="CSV",
+        filename=filename,
+    )
+
     return FileResponse(
         path=file_path,
         media_type="text/csv",
-        filename=(
-            f"investigation_"
-            f"{investigation_id}_analytics.csv"
-        ),
+        filename=filename,
     )
 
 @router.get(
@@ -684,10 +700,12 @@ def export_analytics_excel(
         or {}
     )
 
-    report = {
-        "investigation_id": investigation_id,
-        **analytics,
-    }
+    dashboard = AnalyticsValidationService.build_dashboard(
+        investigation_id=investigation_id,
+        analytics=analytics,
+    )
+
+    report = dashboard.model_dump()
 
     service = AnalyticsReportService(
         report
@@ -695,16 +713,26 @@ def export_analytics_excel(
 
     file_path = service.export_excel()
 
+    filename = (
+        f"investigation_"
+        f"{investigation_id}_analytics.xlsx"
+    )
+
+    ReportHistoryService(session).record_report(
+        user_id=current_user.id,
+        investigation_id=investigation_id,
+        report_type="INVESTIGATION_ANALYTICS",
+        format="EXCEL",
+        filename=filename,
+    )
+
     return FileResponse(
         path=file_path,
         media_type=(
             "application/vnd.openxmlformats-officedocument."
             "spreadsheetml.sheet"
         ),
-        filename=(
-            f"investigation_"
-            f"{investigation_id}_analytics.xlsx"
-        ),
+        filename=filename,
     )
 @router.get(
     "/{investigation_id}/analytics/export/pdf",
@@ -743,10 +771,12 @@ def export_analytics_pdf(
         or {}
     )
 
-    report = {
-        "investigation_id": investigation_id,
-        **analytics,
-    }
+    dashboard = AnalyticsValidationService.build_dashboard(
+        investigation_id=investigation_id,
+        analytics=analytics,
+    )
+
+    report = dashboard.model_dump()
 
     service = AnalyticsReportService(
         report
@@ -754,11 +784,21 @@ def export_analytics_pdf(
 
     file_path = service.export_pdf()
 
+    filename = (
+        f"investigation_"
+        f"{investigation_id}_analytics.pdf"
+    )
+
+    ReportHistoryService(session).record_report(
+        user_id=current_user.id,
+        investigation_id=investigation_id,
+        report_type="INVESTIGATION_ANALYTICS",
+        format="PDF",
+        filename=filename,
+    )
+
     return FileResponse(
         path=file_path,
         media_type="application/pdf",
-        filename=(
-            f"investigation_"
-            f"{investigation_id}_analytics.pdf"
-        ),
+        filename=filename,
     )
