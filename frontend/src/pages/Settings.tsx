@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bell, RefreshCw, Save, UserCircle } from "lucide-react";
+import { Bell, CheckCircle2, RefreshCw, Save, UserCircle } from "lucide-react";
 
 import notificationApi from "../services/notificationApi";
 import { getCurrentUser } from "../services/authApi";
@@ -214,6 +214,72 @@ function Settings() {
       )}
 
       {!loading && preferences && (
+        <>
+          <div className="settings-section">
+            <div className="settings-section-header">
+              <div>
+                <h2>
+                  <CheckCircle2 size={19} />
+                  Integration Status
+                </h2>
+
+                <p>
+                  Notification providers currently registered with the platform.
+                </p>
+              </div>
+            </div>
+
+            <div className="integration-status-list">
+              <div className="integration-status-row">
+                <div>
+                  <strong>Email</strong>
+                  <small>
+                    Email notification provider is registered.
+                  </small>
+                </div>
+
+                <span className="integration-status-badge">
+                  <CheckCircle2 size={15} />
+                  Registered
+                </span>
+              </div>
+
+              <div className="integration-status-row">
+                <div>
+                  <strong>Slack</strong>
+                  <small>
+                    Slack notification provider is registered.
+                  </small>
+                </div>
+
+                <span className="integration-status-badge">
+                  <CheckCircle2 size={15} />
+                  Registered
+                </span>
+              </div>
+
+              <div className="integration-status-row">
+                <div>
+                  <strong>Microsoft Teams</strong>
+                  <small>
+                    Teams notification provider is registered.
+                  </small>
+                </div>
+
+                <span className="integration-status-badge">
+                  <CheckCircle2 size={15} />
+                  Registered
+                </span>
+              </div>
+            </div>
+
+            <div className="integration-status-note">
+              Provider registration indicates that the backend supports the
+              integration. Credentials, SMTP configuration, or webhook
+              configuration are managed by the backend environment.
+            </div>
+          </div>
+
         <div className="settings-section">
           <div className="settings-section-header">
             <div>
@@ -374,6 +440,7 @@ function Settings() {
             </label>
           </div>
         </div>
+        </>
       )}
     </section>
   );
