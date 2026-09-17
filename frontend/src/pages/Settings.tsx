@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Bell, RefreshCw, Save } from "lucide-react";
+import { Bell, RefreshCw, Save, UserCircle } from "lucide-react";
 
 import notificationApi from "../services/notificationApi";
+import { getCurrentUser } from "../services/authApi";
 import type {
   NotificationPreferences,
   NotificationPreferencesUpdate,
@@ -10,6 +11,9 @@ import type {
 function Settings() {
   const [preferences, setPreferences] =
     useState<NotificationPreferences | null>(null);
+
+  const [user, setUser] =
+    useState<import("../services/authApi").User | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,10 +26,13 @@ function Settings() {
       setError(null);
       setSuccess(null);
 
-      const data =
-        await notificationApi.getPreferences();
+      const [userData, preferencesData] = await Promise.all([
+        getCurrentUser(),
+        notificationApi.getPreferences(),
+      ]);
 
-      setPreferences(data);
+      setUser(userData);
+      setPreferences(preferencesData);
     } catch (err) {
       console.error(
         "Failed to load notification preferences:",
@@ -143,6 +150,66 @@ function Settings() {
         <div className="success-state">
           <strong>Saved</strong>
           <p>{success}</p>
+        </div>
+      )}
+
+      {!loading && user && (
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <div>
+              <h2>
+                <UserCircle size={19} />
+                Account Information
+              </h2>
+
+              <p>
+                View your authenticated account details.
+              </p>
+            </div>
+          </div>
+
+          <div className="account-details">
+            <div className="account-detail">
+              <span>Full name</span>
+              <strong>{user.full_name || "Not provided"}</strong>
+            </div>
+
+            <div className="account-detail">
+              <span>Username</span>
+              <strong>{user.username}</strong>
+            </div>
+
+            <div className="account-detail">
+              <span>Email</span>
+              <strong>{user.email}</strong>
+            </div>
+
+            <div className="account-detail">
+              <span>Role</span>
+              <strong>{user.role}</strong>
+            </div>
+
+            <div className="account-detail">
+              <span>Account status</span>
+              <strong>
+                {user.is_active ? "Active" : "Inactive"}
+              </strong>
+            </div>
+
+            <div className="account-detail">
+              <span>Verification</span>
+              <strong>
+                {user.is_verified ? "Verified" : "Not verified"}
+              </strong>
+            </div>
+
+            <div className="account-detail">
+              <span>Member since</span>
+              <strong>
+                {new Date(user.created_at).toLocaleDateString()}
+              </strong>
+            </div>
+          </div>
         </div>
       )}
 
