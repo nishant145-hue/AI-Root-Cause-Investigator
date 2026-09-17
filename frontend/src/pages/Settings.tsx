@@ -1,19 +1,313 @@
+import { useEffect, useState } from "react";
+import { Bell, RefreshCw, Save } from "lucide-react";
+
+import notificationApi from "../services/notificationApi";
+import type {
+  NotificationPreferences,
+  NotificationPreferencesUpdate,
+} from "../services/notificationApi";
+
 function Settings() {
+  const [preferences, setPreferences] =
+    useState<NotificationPreferences | null>(null);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  async function loadPreferences() {
+    try {
+      setLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      const data =
+        await notificationApi.getPreferences();
+
+      setPreferences(data);
+    } catch (err) {
+      console.error(
+        "Failed to load notification preferences:",
+        err,
+      );
+
+      setError(
+        "Unable to load notification preferences. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadPreferences();
+  }, []);
+
+  function updatePreference(
+    field: keyof NotificationPreferencesUpdate,
+    value: boolean,
+  ) {
+    setPreferences((current) =>
+      current
+        ? {
+            ...current,
+            [field]: value,
+          }
+        : current,
+    );
+
+    setSuccess(null);
+    setError(null);
+  }
+
+  async function handleSave() {
+    if (!preferences) {
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+      setSuccess(null);
+
+      const update: NotificationPreferencesUpdate = {
+        email_enabled:
+          preferences.email_enabled,
+        slack_enabled:
+          preferences.slack_enabled,
+        teams_enabled:
+          preferences.teams_enabled,
+        critical_only:
+          preferences.critical_only,
+        daily_digest:
+          preferences.daily_digest,
+        weekly_digest:
+          preferences.weekly_digest,
+      };
+
+      const updated =
+        await notificationApi.updatePreferences(
+          update,
+        );
+
+      setPreferences(updated);
+      setSuccess(
+        "Notification preferences saved successfully.",
+      );
+    } catch (err) {
+      console.error(
+        "Failed to save notification preferences:",
+        err,
+      );
+
+      setError(
+        "Unable to save notification preferences. Please try again.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <section className="page">
       <div className="page-heading">
         <div>
           <h1>Settings</h1>
-          <p>Manage your account and platform integrations.</p>
+          <p>
+            Manage your account and platform integrations.
+          </p>
         </div>
       </div>
 
-      <div className="empty-state">
-        <h2>Settings</h2>
-        <p>
-          Account and integration settings will be implemented later.
-        </p>
-      </div>
+      {loading && (
+        <div className="loading-state">
+          <RefreshCw
+            size={20}
+            className="spin"
+          />
+          <span>
+            Loading notification preferences...
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div className="error-state">
+          <strong>Settings error</strong>
+          <p>{error}</p>
+        </div>
+      )}
+
+      {success && (
+        <div className="success-state">
+          <strong>Saved</strong>
+          <p>{success}</p>
+        </div>
+      )}
+
+      {!loading && preferences && (
+        <div className="settings-section">
+          <div className="settings-section-header">
+            <div>
+              <h2>
+                <Bell size={19} />
+                Notification Preferences
+              </h2>
+
+              <p>
+                Choose how and when the platform
+                sends notifications.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              className="button-primary"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? (
+                <RefreshCw
+                  size={17}
+                  className="spin"
+                />
+              ) : (
+                <Save size={17} />
+              )}
+              {saving ? "Saving..." : "Save changes"}
+            </button>
+          </div>
+
+          <div className="settings-preferences">
+            <label className="settings-preference-row">
+              <span className="settings-preference-content">
+                <strong>Email notifications</strong>
+                <small>
+                  Receive notifications through email.
+                </small>
+              </span>
+
+              <input
+                type="checkbox"
+                checked={preferences.email_enabled}
+                onChange={(event) =>
+                  updatePreference(
+                    "email_enabled",
+                    event.target.checked,
+                  )
+                }
+                disabled={saving}
+              />
+            </label>
+
+            <label className="settings-preference-row">
+              <span className="settings-preference-content">
+                <strong>Slack notifications</strong>
+                <small>
+                  Send notifications to your configured Slack integration.
+                </small>
+              </span>
+
+              <input
+                type="checkbox"
+                checked={preferences.slack_enabled}
+                onChange={(event) =>
+                  updatePreference(
+                    "slack_enabled",
+                    event.target.checked,
+                  )
+                }
+                disabled={saving}
+              />
+            </label>
+
+            <label className="settings-preference-row">
+              <span className="settings-preference-content">
+                <strong>Microsoft Teams notifications</strong>
+                <small>
+                  Send notifications to your configured Teams integration.
+                </small>
+              </span>
+
+              <input
+                type="checkbox"
+                checked={preferences.teams_enabled}
+                onChange={(event) =>
+                  updatePreference(
+                    "teams_enabled",
+                    event.target.checked,
+                  )
+                }
+                disabled={saving}
+              />
+            </label>
+
+            <label className="settings-preference-row">
+              <span className="settings-preference-content">
+                <strong>Critical notifications only</strong>
+                <small>
+                  Limit notifications to events marked as critical.
+                </small>
+              </span>
+
+              <input
+                type="checkbox"
+                checked={preferences.critical_only}
+                onChange={(event) =>
+                  updatePreference(
+                    "critical_only",
+                    event.target.checked,
+                  )
+                }
+                disabled={saving}
+              />
+            </label>
+
+            <label className="settings-preference-row">
+              <span className="settings-preference-content">
+                <strong>Daily digest</strong>
+                <small>
+                  Receive a daily summary of relevant notifications.
+                </small>
+              </span>
+
+              <input
+                type="checkbox"
+                checked={preferences.daily_digest}
+                onChange={(event) =>
+                  updatePreference(
+                    "daily_digest",
+                    event.target.checked,
+                  )
+                }
+                disabled={saving}
+              />
+            </label>
+
+            <label className="settings-preference-row">
+              <span className="settings-preference-content">
+                <strong>Weekly digest</strong>
+                <small>
+                  Receive a weekly summary of relevant notifications.
+                </small>
+              </span>
+
+              <input
+                type="checkbox"
+                checked={preferences.weekly_digest}
+                onChange={(event) =>
+                  updatePreference(
+                    "weekly_digest",
+                    event.target.checked,
+                  )
+                }
+                disabled={saving}
+              />
+            </label>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
