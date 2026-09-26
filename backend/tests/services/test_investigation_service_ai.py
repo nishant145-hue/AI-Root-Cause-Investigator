@@ -257,6 +257,12 @@ def test_run_ai_uses_agent_execution_manager(
 
     manager = MagicMock()
 
+    critical_path = ["langgraph_investigation"]
+
+    manager.investigation_critical_path.return_value = critical_path
+
+    execution_analytics["critical_path"] = critical_path
+
     manager.run.return_value = (
         ai_result,
         execution_analytics,
