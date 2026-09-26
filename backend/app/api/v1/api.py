@@ -15,7 +15,9 @@ from app.api.v1.routes.observability import (
 from app.api.v1.routes.report import router as report_router
 from app.api.v1.routes.upload import router as upload_router
 from fastapi import APIRouter
-
+from app.api.v1.routes.integrations import (
+    router as integrations_router,
+)
 api_router = APIRouter()
 
 # ---------------------------------------------------------
@@ -65,4 +67,10 @@ api_router.include_router(
 # ---------------------------------------------------------
 api_router.include_router(
     observability_router,
+)
+# ---------------------------------------------------------
+# Integrations
+# ---------------------------------------------------------
+api_router.include_router(
+    integrations_router,
 )

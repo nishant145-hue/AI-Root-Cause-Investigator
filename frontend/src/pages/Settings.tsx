@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Bell, CheckCircle2, RefreshCw, Save, UserCircle } from "lucide-react";
-
 import notificationApi from "../services/notificationApi";
 import { getCurrentUser } from "../services/authApi";
+import { getIntegrationStatus } from "../services/integrationApi";
 import type {
   NotificationPreferences,
   NotificationPreferencesUpdate,
@@ -15,6 +15,11 @@ function Settings() {
   const [user, setUser] =
     useState<import("../services/authApi").User | null>(null);
 
+  const [integrationStatus, setIntegrationStatus] =
+    useState<import("../services/integrationApi").IntegrationStatusResponse | null>(
+      null,
+    );
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,13 +31,16 @@ function Settings() {
       setError(null);
       setSuccess(null);
 
-      const [userData, preferencesData] = await Promise.all([
-        getCurrentUser(),
-        notificationApi.getPreferences(),
-      ]);
+      const [userData, preferencesData, integrationData] =
+        await Promise.all([
+          getCurrentUser(),
+          notificationApi.getPreferences(),
+          getIntegrationStatus(),
+        ]);
 
       setUser(userData);
       setPreferences(preferencesData);
+      setIntegrationStatus(integrationData);
     } catch (err) {
       console.error(
         "Failed to load notification preferences:",
@@ -234,13 +242,17 @@ function Settings() {
                 <div>
                   <strong>Email</strong>
                   <small>
-                    Email notification provider is registered.
+                    {integrationStatus?.email.configured
+                      ? "Email notification provider is configured."
+                      : "Email provider is registered but not configured."}
                   </small>
                 </div>
 
                 <span className="integration-status-badge">
                   <CheckCircle2 size={15} />
-                  Registered
+                    {integrationStatus?.email.configured
+                      ? "Configured"
+                      : "Not configured"}
                 </span>
               </div>
 
@@ -248,13 +260,17 @@ function Settings() {
                 <div>
                   <strong>Slack</strong>
                   <small>
-                    Slack notification provider is registered.
+                    {integrationStatus?.slack.configured
+                      ? "Slack notification provider is configured."
+                      : "Slack provider is registered but not configured."}
                   </small>
                 </div>
 
                 <span className="integration-status-badge">
                   <CheckCircle2 size={15} />
-                  Registered
+                    {integrationStatus?.slack.configured
+                      ? "Configured"
+                      : "Not configured"}
                 </span>
               </div>
 
@@ -262,21 +278,25 @@ function Settings() {
                 <div>
                   <strong>Microsoft Teams</strong>
                   <small>
-                    Teams notification provider is registered.
+                    {integrationStatus?.teams.configured
+                      ? "Teams notification provider is configured."
+                      : "Teams provider is registered but not configured."}
                   </small>
                 </div>
 
                 <span className="integration-status-badge">
                   <CheckCircle2 size={15} />
-                  Registered
+                    {integrationStatus?.teams.configured
+                      ? "Configured"
+                      : "Not configured"}
                 </span>
               </div>
             </div>
 
             <div className="integration-status-note">
-              Provider registration indicates that the backend supports the
-              integration. Credentials, SMTP configuration, or webhook
-              configuration are managed by the backend environment.
+              Integration status is read from the backend environment.
+              Credentials, SMTP configuration, or webhook configuration
+              are managed by the backend environment.
             </div>
           </div>
 
