@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getApiErrorMessage } from "../services/api";
 import { Bell, CheckCircle2, RefreshCw, Save, UserCircle } from "lucide-react";
 import notificationApi from "../services/notificationApi";
 import { getCurrentUser } from "../services/authApi";
@@ -47,9 +48,7 @@ function Settings() {
         err,
       );
 
-      setError(
-        "Unable to load notification preferences. Please try again.",
-      );
+      setError(getApiErrorMessage(err, "Unable to load notification preferences. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -116,9 +115,7 @@ function Settings() {
         err,
       );
 
-      setError(
-        "Unable to save notification preferences. Please try again.",
-      );
+      setError(getApiErrorMessage(err, "Unable to save notification preferences. Please try again."));
     } finally {
       setSaving(false);
     }

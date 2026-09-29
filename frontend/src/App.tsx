@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Investigation from "./pages/Investigation";
 import Investigations from "./pages/Investigations";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import Notifications from "./pages/Notifications";
 import NotFound from "./pages/NotFound";
 import Observability from "./pages/Observability";
@@ -24,6 +25,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>

@@ -9,6 +9,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import { getApiErrorMessage } from "../services/api";
 import notificationApi from "../services/notificationApi";
 import type {
   Notification,
@@ -52,9 +53,7 @@ function Notifications() {
         err,
       );
 
-      setError(
-        "Unable to load notifications. Please try again.",
-      );
+      setError(getApiErrorMessage(err, "Unable to load notifications. Please try again."));
     } finally {
       setLoading(false);
     }
@@ -89,9 +88,7 @@ function Notifications() {
         err,
       );
 
-      setError(
-        "Unable to mark the notification as read.",
-      );
+      setError(getApiErrorMessage(err, "Unable to mark the notification as read."));
     } finally {
       setActionLoading(null);
     }
@@ -119,9 +116,7 @@ function Notifications() {
         err,
       );
 
-      setError(
-        "Unable to mark all notifications as read.",
-      );
+      setError(getApiErrorMessage(err, "Unable to mark all notifications as read."));
     } finally {
       setMarkingAllRead(false);
     }
@@ -150,9 +145,7 @@ function Notifications() {
         err,
       );
 
-      setError(
-        "Unable to archive the notification.",
-      );
+      setError(getApiErrorMessage(err, "Unable to archive the notification."));
     } finally {
       setActionLoading(null);
     }
@@ -181,9 +174,7 @@ function Notifications() {
         err,
       );
 
-      setError(
-        "Unable to unarchive the notification.",
-      );
+      setError(getApiErrorMessage(err, "Unable to unarchive the notification."));
     } finally {
       setActionLoading(null);
     }
@@ -220,9 +211,35 @@ function Notifications() {
         err,
       );
 
-      setError(
-        "Unable to delete the notification.",
+      setError(getApiErrorMessage(err, "Unable to delete the notification."));
+    } finally {
+      setActionLoading(null);
+    }
+  }
+
+  async function handleRetry(notificationId: number) {
+    try {
+      setActionLoading(notificationId);
+      setError(null);
+
+      const updated = await notificationApi.retry(
+        notificationId,
       );
+
+      setNotifications((current) =>
+        current.map((notification) =>
+          notification.id === notificationId
+            ? updated
+            : notification,
+        ),
+      );
+    } catch (err) {
+      console.error(
+        "Failed to retry notification:",
+        err,
+      );
+
+      setError(getApiErrorMessage(err, "Unable to retry the notification."));
     } finally {
       setActionLoading(null);
     }
@@ -518,6 +535,26 @@ function Notifications() {
                                 : "Archive"}
                             </span>
                           </button>
+
+                          {notification.status === "failed" && !showArchived && (
+                            <button
+                              type="button"
+                              className="notification-action-button"
+                              onClick={() => handleRetry(notification.id)}
+                              disabled={actionLoading === notification.id}
+                              title="Retry notification"
+                            >
+                              {actionLoading === notification.id ? (
+                                <RefreshCw
+                                  size={15}
+                                  className="spin"
+                                />
+                              ) : (
+                                <RefreshCw size={15} />
+                              )}
+                              <span>Retry</span>
+                            </button>
+                          )}
 
                           <button
                             type="button"

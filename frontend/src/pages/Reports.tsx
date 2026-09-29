@@ -8,6 +8,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import { getApiErrorMessage } from "../services/api";
 import {
   getRecentInvestigations,
 } from "../services/dashboardApi";
@@ -85,9 +86,7 @@ function Reports() {
         err,
       );
 
-      setError(
-        "Unable to load report history. Please try again.",
-      );
+      setError(getApiErrorMessage(err, "Unable to load report history. Please try again."));
     } finally {
       setLoadingHistory(false);
     }
@@ -116,9 +115,7 @@ function Reports() {
           err,
         );
 
-        setError(
-          "Unable to load investigations. Please try again.",
-        );
+        setError(getApiErrorMessage(err, "Unable to load investigations. Please try again."));
       } finally {
         setLoadingInvestigations(false);
       }
@@ -164,9 +161,7 @@ function Reports() {
 
       setAnalytics(null);
 
-      setError(
-        "Unable to load analytics for this investigation.",
-      );
+      setError(getApiErrorMessage(err, "Unable to load analytics for this investigation."));
     } finally {
       setLoadingAnalytics(false);
     }
@@ -233,9 +228,7 @@ function Reports() {
         err,
       );
 
-      setError(
-        "Unable to download the report. Please try again.",
-      );
+      setError(getApiErrorMessage(err, "Unable to download the report. Please try again."));
     } finally {
       setLoadingReport(null);
     }
@@ -295,9 +288,7 @@ function Reports() {
         err,
       );
 
-      setError(
-        "Unable to download the investigation report. Please try again.",
-      );
+      setError(getApiErrorMessage(err, "Unable to download the investigation report. Please try again."));
     } finally {
       setLoadingReport(null);
     }

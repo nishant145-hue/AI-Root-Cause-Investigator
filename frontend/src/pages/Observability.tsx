@@ -116,27 +116,31 @@ function MetricCard({
 function Observability() {
   const [selectedInvestigationId, setSelectedInvestigationId] =
     useState<number | null>(null);
-  const healthQuery = useQuery({
+    const healthQuery = useQuery({
     queryKey: ["observability", "health"],
-    queryFn: getObservabilityHealth,
+    queryFn: ({ signal }) =>
+      getObservabilityHealth({ signal }),
     refetchInterval: 30000,
   });
 
   const runtimeQuery = useQuery({
     queryKey: ["observability", "runtime"],
-    queryFn: getObservabilityRuntime,
+    queryFn: ({ signal }) =>
+      getObservabilityRuntime({ signal }),
     refetchInterval: 30000,
   });
 
   const failuresQuery = useQuery({
     queryKey: ["observability", "failures"],
-    queryFn: getObservabilityFailures,
+    queryFn: ({ signal }) =>
+      getObservabilityFailures({ signal }),
     refetchInterval: 30000,
   });
 
   const investigationsQuery = useQuery({
     queryKey: ["observability", "investigations"],
-    queryFn: () => getRecentInvestigations(50, 0),
+    queryFn: ({ signal }) =>
+      getRecentInvestigations(50, 0, { signal }),
   });
 
   const analyticsQuery =
@@ -146,9 +150,10 @@ function Observability() {
         "investigation-analytics",
         selectedInvestigationId,
       ],
-      queryFn: () =>
+      queryFn: ({ signal }) =>
         getInvestigationAnalyticsDashboard(
           selectedInvestigationId as number,
+          { signal },
         ),
       enabled: selectedInvestigationId !== null,
       refetchInterval: 30000,

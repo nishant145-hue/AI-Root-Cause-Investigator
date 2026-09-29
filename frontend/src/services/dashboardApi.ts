@@ -1,4 +1,6 @@
-import api from "./api";
+import api, {
+  type ApiRequestConfig,
+} from "./api";
 
 import type {
   ConfidenceAnalytics,
@@ -11,9 +13,12 @@ import type {
 } from "../types/dashboard";
 
 export const getDashboardOverview =
-  async (): Promise<DashboardOverview> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<DashboardOverview> => {
     const response = await api.get<DashboardOverview>(
       "/api/v1/dashboard/overview",
+      config,
     );
 
     return response.data;
@@ -22,6 +27,7 @@ export const getDashboardOverview =
 export const getRecentInvestigations = async (
   limit = 10,
   offset = 0,
+  config?: ApiRequestConfig,
 ): Promise<RecentInvestigation[]> => {
   const response = await api.get<RecentInvestigation[]>(
     "/api/v1/dashboard/recent",
@@ -30,6 +36,7 @@ export const getRecentInvestigations = async (
         limit,
         offset,
       },
+      ...config,
     },
   );
 
@@ -37,47 +44,62 @@ export const getRecentInvestigations = async (
 };
 
 export const getDashboardTimeline =
-  async (): Promise<TimelinePoint[]> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<TimelinePoint[]> => {
     const response = await api.get<TimelinePoint[]>(
       "/api/v1/dashboard/timeline",
+      config,
     );
 
     return response.data;
   };
 
 export const getSeverityDistribution =
-  async (): Promise<SeverityAnalytics[]> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<SeverityAnalytics[]> => {
     const response = await api.get<SeverityAnalytics[]>(
       "/api/v1/dashboard/severity",
+      config,
     );
 
     return response.data;
   };
 
 export const getRootCauses =
-  async (): Promise<RootCauseAnalytics[]> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<RootCauseAnalytics[]> => {
     const response = await api.get<RootCauseAnalytics[]>(
       "/api/v1/dashboard/root-causes",
+      config,
     );
 
     return response.data;
   };
 
 export const getFailedComponents =
-  async (): Promise<FailedComponentAnalytics[]> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<FailedComponentAnalytics[]> => {
     const response =
       await api.get<FailedComponentAnalytics[]>(
         "/api/v1/dashboard/failed-components",
+        config,
       );
 
     return response.data;
   };
 
 export const getConfidenceAnalytics =
-  async (): Promise<ConfidenceAnalytics> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<ConfidenceAnalytics> => {
     const response =
       await api.get<ConfidenceAnalytics>(
         "/api/v1/dashboard/confidence",
+        config,
       );
 
     return response.data;

@@ -1,10 +1,19 @@
-import api from "./api";
+import api, {
+  type ApiRequestConfig,
+} from "./api";
 
 import type {
   Investigation,
   InvestigationCreate,
 } from "../types/investigation";
 
+export interface InvestigationListResponse {
+  items: Investigation[];
+  total: number;
+  skip: number;
+  limit: number;
+  has_next: boolean;
+}
 export interface RunAIInvestigationRequest {
   log_file_id: number;
 }
@@ -157,14 +166,41 @@ export const createInvestigation = async (
 
 export const getInvestigation = async (
   investigationId: number,
+  config?: ApiRequestConfig,
 ): Promise<Investigation> => {
   const response = await api.get<Investigation>(
     `/api/v1/investigations/${investigationId}`,
+    config,
   );
 
   return response.data;
 };
+/*
+ * ============================================================
+ * Get Investigations
+ * ============================================================
+ */
 
+export const getInvestigations = async (
+  params?: {
+    skip?: number;
+    limit?: number;
+    search?: string;
+    status_filter?: string;
+  },
+  config?: ApiRequestConfig,
+): Promise<InvestigationListResponse> => {
+  const response =
+    await api.get<InvestigationListResponse>(
+      "/api/v1/investigations",
+      {
+        ...config,
+        params,
+      },
+    );
+
+  return response.data;
+};
 /*
  * ============================================================
  * Run AI Investigation
@@ -191,10 +227,12 @@ export const runAIInvestigation = async (
 
 export const getInvestigationHistory = async (
   investigationId: number,
+  config?: ApiRequestConfig,
 ): Promise<InvestigationHistoryList> => {
   const response =
     await api.get<InvestigationHistoryList>(
       `/api/v1/investigations/${investigationId}/history`,
+      config,
     );
 
   return response.data;
@@ -208,10 +246,12 @@ export const getInvestigationHistory = async (
 
 export const getInvestigationAnalytics = async (
   investigationId: number,
+  config?: ApiRequestConfig,
 ): Promise<InvestigationAnalytics> => {
   const response =
     await api.get<InvestigationAnalytics>(
       `/api/v1/investigations/${investigationId}/analytics`,
+      config,
     );
 
   return response.data;
@@ -226,14 +266,22 @@ export const getInvestigationAnalytics = async (
 export const getInvestigationAnalyticsDashboard =
   async (
     investigationId: number,
+    config?: ApiRequestConfig,
   ): Promise<InvestigationAnalyticsDashboard> => {
     const response =
       await api.get<InvestigationAnalyticsDashboard>(
         `/api/v1/investigations/${investigationId}/analytics/dashboard`,
+        config,
       );
 
     return response.data;
-  };
+};
+
+/*
+ * ============================================================
+ * Investigation Analytics Dashboard
+ * ============================================================
+ */
 
 /*
  * ============================================================
@@ -289,47 +337,58 @@ export const getInvestigationCriticalPath =
     return response.data;
   };
 
-export interface ObservabilityHealth {
-  [key: string]: unknown;
-}
+/*
+ * ============================================================
+ * Observability Health / Runtime
+ * ============================================================
+ */
 
-export interface ObservabilityRuntime {
-  [key: string]: unknown;
-}
+export type ObservabilityHealth =
+  Record<string, unknown>;
 
-export interface ObservabilityFailures {
-  [key: string]: unknown;
-}
+export type ObservabilityRuntime =
+  Record<string, unknown>;
 
-export interface InvestigationObservabilitySummary {
-  [key: string]: unknown;
-}
+export type ObservabilityFailures =
+  Record<string, unknown>;
+
+export type InvestigationObservabilitySummary =
+  Record<string, unknown>;
 
 export const getObservabilityHealth =
-  async (): Promise<ObservabilityHealth> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<ObservabilityHealth> => {
     const response =
       await api.get<ObservabilityHealth>(
         "/api/v1/observability/health",
+        config,
       );
 
     return response.data;
   };
 
 export const getObservabilityRuntime =
-  async (): Promise<ObservabilityRuntime> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<ObservabilityRuntime> => {
     const response =
       await api.get<ObservabilityRuntime>(
         "/api/v1/observability/runtime",
+        config,
       );
 
     return response.data;
   };
 
 export const getObservabilityFailures =
-  async (): Promise<ObservabilityFailures> => {
+  async (
+    config?: ApiRequestConfig,
+  ): Promise<ObservabilityFailures> => {
     const response =
       await api.get<ObservabilityFailures>(
         "/api/v1/observability/failures",
+        config,
       );
 
     return response.data;
@@ -338,10 +397,12 @@ export const getObservabilityFailures =
 export const getInvestigationObservabilitySummary =
   async (
     investigationId: number,
+    config?: ApiRequestConfig,
   ): Promise<InvestigationObservabilitySummary> => {
     const response =
       await api.get<InvestigationObservabilitySummary>(
         `/api/v1/observability/investigations/${investigationId}/summary`,
+        config,
       );
 
     return response.data;

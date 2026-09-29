@@ -3,17 +3,20 @@ import {
   type FormEvent,
 } from "react";
 import {
+  Link,
   Navigate,
   useLocation,
   useNavigate,
 } from "react-router-dom";
 
 import { useAuth } from "../context/AuthContext";
+import { getApiErrorMessage } from "../services/api";
 
 interface LoginLocationState {
   from?: {
     pathname?: string;
   };
+  registrationSuccess?: string;
 }
 
 function Login() {
@@ -28,6 +31,9 @@ function Login() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+
+  const locationState =
+    location.state as LoginLocationState | null;
 
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,9 +56,6 @@ function Login() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  const locationState =
-    location.state as LoginLocationState | null;
-
   const redirectPath =
     locationState?.from?.pathname || "/dashboard";
 
@@ -70,29 +73,12 @@ function Login() {
 
       navigate(redirectPath, { replace: true });
     } catch (err: unknown) {
-      let message = "Unable to sign in. Please check your credentials.";
-
-      if (
-        typeof err === "object" &&
-        err !== null &&
-        "response" in err
-      ) {
-        const response = (
-          err as {
-            response?: {
-              data?: {
-                detail?: string;
-              };
-            };
-          }
-        ).response;
-
-        if (response?.data?.detail) {
-          message = response.data.detail;
-        }
-      }
-
-      setError(message);
+      setError(
+        getApiErrorMessage(
+          err,
+          "Unable to sign in. Please check your credentials.",
+        ),
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -101,9 +87,7 @@ function Login() {
   return (
     <div className="page-center">
       <div className="auth-card">
-        <div className="app-brand-icon auth-icon">
-          AI
-        </div>
+        <div className="app-brand-icon auth-icon">AI</div>
 
         <h1>AI Root Cause Investigator</h1>
 
@@ -111,6 +95,12 @@ function Login() {
           Sign in to investigate incidents and identify
           root causes.
         </p>
+
+        {locationState?.registrationSuccess && (
+          <div className="auth-success" role="status">
+            {locationState.registrationSuccess}
+          </div>
+        )}
 
         <form
           onSubmit={handleSubmit}
@@ -165,6 +155,13 @@ function Login() {
           Use your AI Root Cause Investigator account
           credentials.
         </p>
+
+        <div className="auth-signup">
+          <span>New to AI Root Cause Investigator?</span>
+          <Link to="/register">
+            Create an account
+          </Link>
+        </div>
       </div>
     </div>
   );

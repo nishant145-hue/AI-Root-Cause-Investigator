@@ -1,4 +1,6 @@
-import api from "./api";
+import api, {
+  type ApiRequestConfig,
+} from "./api";
 
 export interface Upload {
   id: number;
@@ -16,8 +18,13 @@ export interface UploadResponse extends Upload {
   message: string;
 }
 
-export const getUploads = async (): Promise<Upload[]> => {
-  const response = await api.get<Upload[]>("/api/v1/uploads");
+export const getUploads = async (
+  config?: ApiRequestConfig,
+): Promise<Upload[]> => {
+  const response = await api.get<Upload[]>(
+    "/api/v1/uploads",
+    config,
+  );
 
   return response.data;
 };

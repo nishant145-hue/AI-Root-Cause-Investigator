@@ -3444,6 +3444,52 @@ a {
   cursor: not-allowed;
 }
 
+.notifications-filter-bar {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.notification-filter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 150px;
+}
+
+.notification-filter-field span {
+  color: #6b7280;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.notification-filter-field select {
+  min-height: 38px;
+  padding: 7px 32px 7px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.notification-filter-field select:focus {
+  outline: none;
+  border-color: #d1d5db;
+  box-shadow: 0 0 0 2px rgba(17, 24, 39, 0.06);
+}
+
+.notification-filter-field select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .notification-archived-time {
   display: block;
   margin-top: 5px;
@@ -3458,6 +3504,24 @@ a {
 
   .notification-view-button {
     flex: 1;
+  }
+
+  .notifications-filter-bar {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .notification-filter-field {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+  }
+
+  .notification-filter-field select {
+    width: 100%;
+  }
+
+  .notifications-filter-bar > .button-secondary {
+    width: 100%;
   }
 }
 /* ============================================================
@@ -3701,4 +3765,30 @@ a {
     align-items: flex-start;
     flex-direction: column;
   }
+}
+
+.auth-signup {
+  margin-top: 18px;
+  padding: 14px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  text-align: center;
+  font-size: 14px;
+  color: #64748b;
+}
+
+.auth-signup a {
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth-signup a:hover {
+  text-decoration: underline;
 }

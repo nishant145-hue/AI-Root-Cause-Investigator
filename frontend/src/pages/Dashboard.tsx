@@ -89,7 +89,8 @@ function Dashboard() {
     refetch: refetchOverview,
   } = useQuery({
     queryKey: ["dashboard", "overview"],
-    queryFn: getDashboardOverview,
+    queryFn: ({ signal }) =>
+      getDashboardOverview({ signal }),
   });
 
   const queryClient = useQueryClient();
@@ -107,7 +108,8 @@ function Dashboard() {
     refetch: refetchRecent,
   } = useQuery({
     queryKey: ["dashboard", "recent-investigations"],
-    queryFn: () => getRecentInvestigations(10, 0),
+    queryFn: ({ signal }) =>
+      getRecentInvestigations(10, 0, { signal }),
   });
 
   const {
@@ -117,8 +119,10 @@ function Dashboard() {
     refetch: refetchRootCauses,
   } = useQuery({
     queryKey: ["dashboard", "root-causes"],
-    queryFn: getRootCauses,
+    queryFn: ({ signal }) =>
+      getRootCauses({ signal }),
   });
+
   const rootCauseChartData = (rootCauses ?? []).map((item) => ({
     name:
       item.root_cause.length > 45
@@ -126,6 +130,7 @@ function Dashboard() {
         : item.root_cause,
     count: item.count,
   }));
+
   const {
     data: severityData,
     isLoading: severityLoading,
@@ -133,7 +138,8 @@ function Dashboard() {
     refetch: refetchSeverity,
   } = useQuery({
     queryKey: ["dashboard", "severity"],
-    queryFn: getSeverityDistribution,
+    queryFn: ({ signal }) =>
+      getSeverityDistribution({ signal }),
   });
 
   const {
@@ -143,17 +149,19 @@ function Dashboard() {
     refetch: refetchConfidence,
   } = useQuery({
     queryKey: ["dashboard", "confidence"],
-    queryFn: getConfidenceAnalytics,
+    queryFn: ({ signal }) =>
+      getConfidenceAnalytics({ signal }),
   });
 
-    const {
+  const {
     data: failedComponents,
     isLoading: failedComponentsLoading,
     isError: failedComponentsError,
     refetch: refetchFailedComponents,
   } = useQuery({
     queryKey: ["dashboard", "failed-components"],
-    queryFn: getFailedComponents,
+    queryFn: ({ signal }) =>
+      getFailedComponents({ signal }),
   });
 
   const {
@@ -163,9 +171,9 @@ function Dashboard() {
     refetch: refetchTimeline,
   } = useQuery({
     queryKey: ["dashboard", "timeline"],
-    queryFn: getDashboardTimeline,
+    queryFn: ({ signal }) =>
+      getDashboardTimeline({ signal }),
   });
-
   const activeInvestigations = overview
     ? Math.max(overview.pending, 0)
     : 0;

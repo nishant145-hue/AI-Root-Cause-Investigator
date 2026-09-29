@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { getApiErrorMessage } from "../services/api";
 import { getUploads, uploadLog } from "../services/uploadApi";
 
 function formatFileSize(size: number): string {
@@ -19,31 +20,10 @@ function formatDate(value: string): string {
 }
 
 function getErrorMessage(error: unknown): string {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "response" in error
-  ) {
-    const response = (
-      error as {
-        response?: {
-          data?: {
-            detail?: string;
-          };
-        };
-      }
-    ).response;
-
-    if (response?.data?.detail) {
-      return response.data.detail;
-    }
-  }
-
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return "Something went wrong while uploading the file.";
+  return getApiErrorMessage(
+    error,
+    "Something went wrong while uploading the file.",
+  );
 }
 
 function Upload() {
@@ -61,7 +41,8 @@ function Upload() {
     refetch,
   } = useQuery({
     queryKey: ["uploads"],
-    queryFn: getUploads,
+    queryFn: ({ signal }) =>
+      getUploads({ signal }),
   });
 
   const uploadMutation = useMutation({

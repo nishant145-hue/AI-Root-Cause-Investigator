@@ -149,8 +149,11 @@ function Investigation() {
       "investigation",
       parsedInvestigationId,
     ],
-    queryFn: () =>
-      getInvestigation(parsedInvestigationId),
+    queryFn: ({ signal }) =>
+    getInvestigation(
+      parsedInvestigationId,
+      { signal },
+    ),
     enabled: validInvestigationId,
   });
 
@@ -162,7 +165,8 @@ function Investigation() {
 
   const uploadsQuery = useQuery<Upload[]>({
     queryKey: ["uploads"],
-    queryFn: getUploads,
+    queryFn: ({ signal }) =>
+      getUploads({ signal }),
   });
 
   /*
@@ -177,9 +181,10 @@ function Investigation() {
         "investigation-analytics-dashboard",
         parsedInvestigationId,
       ],
-      queryFn: () =>
+      queryFn: ({ signal }) =>
         getInvestigationAnalyticsDashboard(
           parsedInvestigationId,
+          { signal },
         ),
       enabled: validInvestigationId,
     });
@@ -196,9 +201,10 @@ function Investigation() {
         "investigation-history",
         parsedInvestigationId,
       ],
-      queryFn: () =>
+      queryFn: ({ signal }) =>
         getInvestigationHistory(
           parsedInvestigationId,
+          { signal },
         ),
       enabled: validInvestigationId,
     });

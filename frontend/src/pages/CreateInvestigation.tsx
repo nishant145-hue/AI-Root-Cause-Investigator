@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { getApiErrorMessage } from "../services/api";
 import { createInvestigation } from "../services/investigationApi";
 
 function CreateInvestigation() {
@@ -52,9 +53,7 @@ function CreateInvestigation() {
         requestError,
       );
 
-      setError(
-        "Unable to create the investigation. Please try again.",
-      );
+      setError(getApiErrorMessage(requestError, "Unable to create the investigation. Please try again."));
     } finally {
       setIsSubmitting(false);
     }
